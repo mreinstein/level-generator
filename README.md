@@ -1,12 +1,20 @@
 # level-generator
-Generate 2d levels in closed environments, as found in many roguelike games.
+Randomly generate 2d levels in closed environments, as found in many roguelike games.
 
-## description
+
+![alt text](screen.png "example generated level")
+
+* yellow rectangles are predefined rooms
+* blue rectangles are generated corridors
+* white rectangles are generated rooms
+* red squares are doors
+
 This module procedurally generates 2d levels in closed environments, as found in many roguelike games.
 
 Levels are built by specifying tunnelers, which are agents that cut through the closed spaces, building corridors (tunnels,) anterooms, rooms, and doors along the way. The construction process uses a design file, which specifies the various tweakable parameters.
 
 Though it is built with top-down perspective in mind, it may be useful for other perspectives like side-scrollers too.
+
 
 
 ## credit and inspiration

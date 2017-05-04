@@ -305,14 +305,14 @@ module.exports = {
 module.exports = {
   // the default random seed that will be used when this design file is first used in a program run.
   // enabling this line will result in the same random numbers used each time, making random levels reproducible
-  
+
   // weird tunnel overlap with prefab room caused by something in _mergeTunnels()
   //randSeed: 0.7956894984385063
 
   //randSeed: 0.05407006067002862
 
   // produces very nice looking level, harcode this to test with for now
-  randSeed: 0.9342698135762848,
+  //randSeed: 0.9342698135762848,
 
   // dimensions of the level to create
   dimensions: {
@@ -367,7 +367,7 @@ module.exports = {
       ]
     }
   ],
-   
+
   //  the following parameters are very important: Builders born in
   //  earlier generations will tend to dominate (fill) the map
 
@@ -389,13 +389,13 @@ module.exports = {
 
     //  probabilities that a baby Tunneler of generation gen will have a tunnelWidth 2 size larger than its parent
     //  last value is repeated for further generations
-    //            gen =   0   1    2    3   4   5     6     7    8   9   10  11 12 13 14 15 16 17 18 19 20 
+    //            gen =   0   1    2    3   4   5     6     7    8   9   10  11 12 13 14 15 16 17 18 19 20
     sizeUpProbability: [ 0,  50,  50,  0,  0,  75,  75,  30 ],
 
 
     //  probabilities that a baby Tunneler of generation gen will have a tunnelWidth 2 size smaller than its parent
     //  last value is repeated for further generations
-    //              gen =   0   1   2    3     4     5   6   7    8   9   10  11 12 13 14 15 16 17 18 19 20 
+    //              gen =   0   1   2    3     4     5   6   7    8   9   10  11 12 13 14 15 16 17 18 19 20
     sizeDownProbability: [ 0,  0,  50,  100,  100,  0,  0,  70 ],
 
     //  for every generation, 100 - (sizeUpProb(gen) + sizeDownProb(gen) = probability that size remains the same,
@@ -483,7 +483,7 @@ module.exports = {
 
 
   //  maxSteps for generations of Tunneler. last value is repeated for further generations
-  //             gen = 0   1    2    3    4    5    6    7    8    9    10   11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30 
+  //             gen = 0   1    2    3    4    5    6    7    8    9    10   11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30
   tunnelerMaxSteps: [ 5,  12,  12,  15,  15,  15,  15,  15,  15,  20,  30,  10, 15, 10, 3,  20, 10, 5,  15, 10, 5,  20, 20, 20, 20, 10, 20, 5,  20, 5,  0 ],
 
 
@@ -502,7 +502,7 @@ module.exports = {
 
   // the minimum amount of space required between rooms
   minRoomSpacing: 1,
-  
+
   // "last-chance-Tunnelers" are created when a Tunneler runs out of room
   lastChanceTunneler: {
     makeRoomsLeftProb: 100,

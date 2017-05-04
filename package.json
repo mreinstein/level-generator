@@ -1,7 +1,7 @@
 {
   "name": "level-generator",
   "version": "0.0.1",
-  "description": "Generate 2d levels in closed environments, as found in many roguelike games.",
+  "description": "Randomly generate 2d levels in closed environments, as found in many roguelike games.",
   "main": "index.js",
   "scripts": {
   },
