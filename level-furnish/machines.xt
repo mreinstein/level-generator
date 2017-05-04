@@ -1,0 +1,27 @@
+//                                                       Padding----------    Spawn Probability---------   Volatility-----------------------------------------------------
+// Name               Theme    Width   Height  Rarity    Wall    Object      Room    Anteroom    Tunnel   Armor    InstabilityChance  InstabilityTimer   Explosion Radius
+Particle-Accelerator  RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Electrolysis-Chamber  RESEARCH    2      2      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Vacuum-Chamber        RESEARCH    2      2      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Centrifuge            RESEARCH    2      2      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Matter-Transference   RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Matter-Transport      RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Particle-Tunneler     RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Molecular-Assembler   RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Storage-Tanks         RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Flux-Coil             RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Quantum-Analysis      RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Fluidic-Reduction     RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Analysis-Node         RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Magnetic-Containment  RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Neutrino-Harvester    RESEARCH    2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Conveyer              FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Combiner              FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Fabricator            FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Aligner               FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Test-Runner           FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Part-Duplicator       FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Schematic-System      FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Assembler             FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Material-Transport    FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles
+Hardening-Chamber     FACTORY     2      3      0.95      3        2           60       30         10       10          0.88             1-8sec            2-4tiles

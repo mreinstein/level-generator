@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
+
+  <style>
+    body {
+      background: #080808;
+      margin: 0;
+    }
+
+    html, body {
+      text-rendering: optimizelegibility;
+      color: whitesmoke;
+
+      font: 400 normal 16px/20px 'Raleway', 'Quicksand', 'Open Sans', 'HelveticaNeue-Light', 'Helvetica Neue Light', 'Helvetica Neue', 'Helvetica', 'Arial', 'Lucida Grande', sans-serif;
+  
+      -moz-user-select: none;
+      -khtml-user-select: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #canvas {  
+      image-rendering: optimizeSpeed;             
+      image-rendering: -moz-crisp-edges;          
+      image-rendering: -webkit-optimize-contrast;                                         
+      image-rendering: -o-crisp-edges;            
+      image-rendering: optimize-contrast;        
+      -ms-interpolation-mode: nearest-neighbor;
+      /*cursor: none; */
+      
+      font: 400 normal 16px/20px 'Raleway', 'Quicksand', 'Open Sans', 'HelveticaNeue-Light', 'Helvetica Neue Light', 'Helvetica Neue', 'Helvetica', 'Arial', 'Lucida Grande', sans-serif;
+    }
+
+  </style>
+</head>
+
+<body>
+  
+  <canvas id="canvas">
+    <div class="unsupported">
+      Sorry, this example cannot be run because your browser does not support the &lt;canvas&gt; element
+    </div>
+  </canvas>
+
+  <script src="bundle.js"></script> 
+</body>
+</html>

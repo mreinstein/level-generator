@@ -1,0 +1,41 @@
+{
+  "name": "level-generator",
+  "version": "0.0.1",
+  "description": "Generate 2d levels in closed environments, as found in many roguelike games.",
+  "main": "index.js",
+  "scripts": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mreinstein/level-generator.git"
+  },
+  "keywords": [
+    "procedural",
+    "level",
+    "generation",
+    "game",
+    "gamedev",
+    "maze",
+    "roguelike",
+    "2d"
+  ],
+  "author": "Mike Reinstein",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mreinstein/level-generator/issues"
+  },
+  "homepage": "https://github.com/mreinstein/level-generator#readme",
+  "dependencies": {
+    "loot-table": "^0.0.2",
+    "remove-array-items": "^1.0.0",
+    "seedrandom": "^2.4.3"
+  },
+  "browserify": {
+    "transform": [
+      "brfs"
+    ]
+  },
+  "devDependencies": {
+    "brfs": "^1.4.3"
+  }
+}
