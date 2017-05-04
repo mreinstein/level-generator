@@ -1,557 +1,4 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-let intersect1D
-const inRange = (idx, start, end) => (idx >= start) && (idx <= end)
-
-
-// returns the intersecting parts of 2 1D line segments, or null
-module.exports = (intersect1D = function(startA, endA, startB, endB) {
-  // determine full extent
-  let end
-  const min = Math.min(startA, startB)
-  const max = Math.max(endA, endB)
-
-  if (min === max) {
-    return [ min, min ]
-  }
-
-  let begin = null
-  for (let idx = min, end1 = max, asc = min <= end1; asc ? idx <= end1 : idx >= end1; asc ? idx++ : idx--) {
-    if (begin === null) {
-      if (inRange(idx, startA, endA) && inRange(idx, startB, endB)) {
-        begin = idx
-      }
-    } else {
-      if (inRange(idx, startA, endA) && inRange(idx, startB, endB)) {
-        end = idx
-      } else {
-        end = end || begin
-        return [ begin, end ]
-      }
-    }
-  }
-
-  if (!begin) { return null }
-
-  end = end || begin
-  return [ begin, end ]
-})
-
-},{}],2:[function(require,module,exports){
-let expandAABB
-const expansionVectors = {
-  NORTH: { x: 0, y: -1, width: 0, height: 1 },
-  SOUTH: { x: 0, y: 0, width: 0, height: 1 },
-  EAST : { x: 0, y: 0, width: 1, height: 0 },
-  WEST : { x: -1, y: 0, width: 1, height: 0 }
-}
-
-
-const PROPS = [ 'x', 'y', 'width', 'height']
-
-module.exports = (expandAABB = function(aabb, direction, amount) {
-  if (amount == null) { amount = 1 }
-  const result = {}
-
-  for (let dim of Array.from(PROPS)) {
-    result[dim] = aabb[dim] + (expansionVectors[direction][dim] * amount)
-  }
-
-  return result
-})
-
-},{}],3:[function(require,module,exports){
-/*
-This test uses a separating axis test, which checks for overlaps between the
-two boxes on each axis. If either axis is not overlapping, the boxes aren’t
-colliding.
-*/
-let intersectAABB
-module.exports = (intersectAABB = function(rect, rect2) {
-  const dx = (rect2.x + (rect2.width/2)) - (rect.x + (rect.width/2))
-  const px = ((rect2.width/2) + (rect.width/2)) - Math.abs(dx)
-  if (px <= 0) { return false }
-
-  const dy = (rect2.y + (rect2.height/2)) - (rect.y + (rect.height/2))
-  const py = ((rect2.height/2) + (rect.height/2)) - Math.abs(dy)
-  if (py <= 0) { return false }
-
-  return true
-})
-
-},{}],4:[function(require,module,exports){
-let moveAABB
-const movementVectors = {
-  NORTH: { x: 0, y: -1 },
-  SOUTH: { x: 0, y: 1 },
-  EAST:  { x: 1, y: 0 },
-  WEST:  { x: -1, y: 0 }
-}
-
-
-module.exports = (moveAABB = function(aabb, direction, amount) {
-  if (amount == null) { amount = 1 }
-  const vec = movementVectors[direction]
-  if ((!(amount > 0)) || !vec) { return aabb }
-  aabb.x += (vec.x * amount)
-  aabb.y += (vec.y * amount)
-  return aabb
-})
-
-},{}],5:[function(require,module,exports){
-// determine if an AABB overlaps a set of existing AABBs
-let overlaps
-const intersects = require('./aabb-intersect')
-
-
-const aabbs = []  // simple AABB object pool
-
-// return true if 2 rectangles overlap. minPadding specifies minimum spacing
-// between the rectangles
-module.exports = (overlaps = function(rectA, rectB, minPadding) {
-  if (minPadding == null) { minPadding = 1 }
-  let b = aabbs.pop()
-  if (!b) {
-    b = {x: 0, y: 0, width: 0, height: 0}
-  }
-
-  b.x = rectB.x
-  b.y = rectB.y
-  b.width = rectB.width
-  b.height = rectB.height
-
-  // inflate the size of rectB by 1 unit in each dimension
-  b.x -= minPadding
-  b.width += (minPadding * 2)
-
-  b.y -= minPadding
-  b.height += (minPadding * 2)
-
-  // check rectA and the inflated rectB for overlap
-  const result = intersects(rectA, b)
-  aabbs.push(b)
-  return result
-})
-
-},{"./aabb-intersect":3}],6:[function(require,module,exports){
-let getPortal
-const intersect1D = require('./1d-intersect')
-
-
-// really nice line segment intersection test:
-// https://github.com/tmpvar/segseg/blob/master/test/index.js
-
-// given 2 AABBs, determine the portal (line segment) spanning the
-// open space that connects them. returns null if they aren't adjacent
-module.exports = (getPortal = function(aabb, next) {
-  // check if AABBs are lined up on x axis ( side by side with 1 space between)
-  let intersection, x
-  if (((aabb.x+aabb.width) === next.x)  ||  ((aabb.x) === (next.x + next.width))) {
-    intersection = intersect1D(aabb.y, aabb.y+aabb.height, next.y, next.y+next.height)
-
-    if (!intersection) { return null }
-
-    if ((aabb.x+aabb.width) === next.x) {
-      x = aabb.x+aabb.width
-    } else {
-      x = next.x + next.width
-    }
-
-    return [ { x, y: intersection[0] }, { x, y: intersection[1] } ]
-  }
-
-  // check if aabbs are lined up on y axis ( on top of each other with 1 space between)
-  if (((aabb.y+aabb.height) === next.y)  ||  ((aabb.y) === (next.y + next.height))) {
-    let y
-    intersection = intersect1D(aabb.x, aabb.x+aabb.width, next.x, next.x+next.width)
-
-    if (!intersection) { return null }
-
-    if ((aabb.y+aabb.height) === next.y) {
-      y = aabb.y+aabb.height
-    } else {
-      y = next.y + next.height
-    }
-
-    return [ { x: intersection[0], y }, { x: intersection[1], y } ]
-  }
-
-  return null
-})
-
-},{"./1d-intersect":1}],7:[function(require,module,exports){
-class Anteroom {
-  constructor(centerX, centerY, tunnelWidth) {
-    this.type = 'anteroom'
-    this.to = {}
-
-    // TODO: build a large or small anteroom depending on size available (build largest possible)
-    //       small: tunnelWidth + 1    large: tunnelWidth + 3
-
-    // determine anteroom size based on tunnel width
-    const roomRadius = tunnelWidth + 1
-    this.x = centerX - roomRadius
-    this.y = centerY - roomRadius
-
-    // anteroom is always odd width/height
-    this.width = (roomRadius * 2) + 1
-    this.height = (roomRadius * 2) + 1
-  }
-
-
-  // given a direction, return the aabb for the exit centered on that edge where the door would be
-  // e.g., getCenteredExitPosition('NORTH') give the x,y position on the top center exit
-  getCenteredDoor(direction) {
-    const aabb = { width: 1, height: 1 }
-    const halfHeight = this.height/2
-    const halfWidth = this.width/ 2
-
-    if (direction === 'EAST') {
-      aabb.x = this.x + this.width
-      aabb.y = Math.floor(this.y + halfHeight)
-    } else if (direction === 'WEST') {
-      aabb.x = this.x - 1
-      aabb.y = Math.floor(this.y + halfHeight)
-    } else if (direction === 'NORTH') {
-      aabb.x = Math.floor(this.x + halfWidth)
-      aabb.y = this.y - 1
-    } else {
-      aabb.x = Math.floor(this.x + halfWidth)
-      aabb.y = this.y + this.height
-    }
-    return aabb
-  }
-
-
-  // given a direction, return the aabb for the exit centered on that edge
-  // e.g., getCenteredExitPosition('NORTH') give the x,y position on the top center exit
-  getCenteredExit(direction) {
-    const aabb = { width: 1, height: 1 }
-    if (direction === 'EAST') {
-      aabb.x = (this.x + this.width) - 1
-      aabb.y = Math.floor(this.y + (this.height/2))
-    } else if (direction === 'WEST') {
-      aabb.x = this.x
-      aabb.y = Math.floor(this.y + (this.height/2))
-    } else if (direction === 'NORTH') {
-      aabb.x = Math.floor(this.x + (this.width/2))
-      aabb.y = this.y
-    } else {
-      aabb.x = Math.floor(this.x + (this.width/2))
-      aabb.y = (this.y + this.height) - 1
-    }
-    return aabb
-  }
-
-
-  isValid(level, parentTunnel) {
-    if (!level.contains(this)) { return false }
-
-    // anteroom must not overlap with existing level rooms/tunnels/anterooms
-    const minRoomSpacing = 1
-    const minAnteroomSpacing = 1
-    const minTunnelSpacing = 0
-    const ignoreEntity = parentTunnel
-    if (level.overlaps(this, minRoomSpacing, minAnteroomSpacing, minTunnelSpacing, ignoreEntity)) {
-      return false
-    }
-    return true
-  }
-}
-
-
-module.exports = Anteroom
-
-},{}],8:[function(require,module,exports){
-let buildGraph
-const getPortal = require('./aabb-portal')
-
-
-// build graph of connected room doors, anterooms, and tunnels
-module.exports = (buildGraph = function(objects) {
-  // create all of the connection data structures
-  for (var obj of Array.from(objects)) {
-    obj.to = {}
-  }
-
-  return (() => {
-    const result = []
-    for (obj of Array.from(objects)) {
-      result.push(objects.forEach(function(entity, idx) {
-        if (entity.id !== obj.id) {
-          const portal = getPortal(obj, entity)
-          if (portal) {
-            obj.to[entity.id] = {entity, portal}
-            return entity.to[obj.id] = {entity: obj, portal}
-          }
-        }
-      }))
-    }
-    return result
-  })()
-})
-
-},{"./aabb-portal":6}],9:[function(require,module,exports){
-module.exports = {
-  OPEN: 0,
-  DOOR_NORTH_SOUTH: 1,
-  DOOR_EAST_WEST: 2,
-  ROOM: 3,
-  ROOM_PREFAB: 4,
-  ANTEROOM: 5,
-  TUNNEL: 6
-}
-
-},{}],10:[function(require,module,exports){
-module.exports = {
-  // the default random seed that will be used when this design file is first used in a program run.
-  // enabling this line will result in the same random numbers used each time, making random levels reproducible
-
-  // weird tunnel overlap with prefab room caused by something in _mergeTunnels()
-  //randSeed: 0.7956894984385063
-
-  //randSeed: 0.05407006067002862
-
-  // produces very nice looking level, harcode this to test with for now
-  //randSeed: 0.9342698135762848,
-
-  // dimensions of the level to create
-  dimensions: {
-    width : 350,
-    height: 250
-  },
-
-  // initial "prefab" rooms
-  // these rooms are special, in that they can't be tunneled into.
-  // useful when you want to place predefined elements in an area.
-  rooms: [
-    {
-      x: 20,
-      y: 20,
-      width: 13,
-      height: 9,
-      doors: [
-        {
-          x: 33,
-          y: 26,
-          width: 1,
-          height: 1
-        }
-      ]
-    },
-    {
-      x: 200,
-      y: 100,
-      width: 17,
-      height: 13,
-      doors: [
-        {
-          x: 199,
-          y: 105,
-          width: 1,
-          height: 1
-        }
-      ]
-    },
-    {
-      x: 90,
-      y: 200,
-      width: 7,
-      height: 5,
-      doors: [
-        {
-          x: 89,
-          y: 202,
-          width: 1,
-          height: 1
-        }
-      ]
-    }
-  ],
-
-  //  the following parameters are very important: Builders born in
-  //  earlier generations will tend to dominate (fill) the map
-
-  //  probabilities that a baby Roomie will be born after i generations
-  //  indices above 10 are illegal, enter integer values for all 11 indices
-  //       i =   0    1    2     3    4    5    6    7    8    9    10
-  babyRoomie: [ 0,   0,   50,   50,  0,   0,   0,   0,   0,   0,   0 ],
-  //  values must add up to 100
-
-
-  babyTunnelers: {
-    //  probabilities that a baby Tunneler will be born after i generations
-    //  (applicable only for those Tunnelers who are not larger than their parents -
-    //  - for those larger than their parents, use sizeUpGenDelay)
-    //  indices above 10 are illegal, enter integer values for all 11 indices
-    //                       i =   0    1    2      3    4    5    6    7    8    9    10
-    generationBirthProbability: [ 0,   0,   100,   0,   0,   0,   0,   0,   0,   0,   0 ],
-    //  values must add up to 100
-
-    //  probabilities that a baby Tunneler of generation gen will have a tunnelWidth 2 size larger than its parent
-    //  last value is repeated for further generations
-    //            gen =   0   1    2    3   4   5     6     7    8   9   10  11 12 13 14 15 16 17 18 19 20
-    sizeUpProbability: [ 0,  50,  50,  0,  0,  75,  75,  30 ],
-
-
-    //  probabilities that a baby Tunneler of generation gen will have a tunnelWidth 2 size smaller than its parent
-    //  last value is repeated for further generations
-    //              gen =   0   1   2    3     4     5   6   7    8   9   10  11 12 13 14 15 16 17 18 19 20
-    sizeDownProbability: [ 0,  0,  50,  100,  100,  0,  0,  70 ],
-
-    //  for every generation, 100 - (sizeUpProb(gen) + sizeDownProb(gen) = probability that size remains the same,
-    //  and this value must be >= 0
-    //  in this example tunnels first get narrower, then rapidly larger in generation 5
-    //  this ensures that larger tunnels are far from the entrance
-    //  actually, the level is too small to let that happen
-    //  after generation 6 there is a random element, tunnels can get larger or smaller
-
-    // high values make the tunneler prefer to join another tunnel or open space
-    // low values means it prefers to end its run by building a room
-    // last value is repeated for further generations
-    //            gen = 0   1   2    3     4
-    joinProbability: [ 0,  0,  10,  100,  100 ]
-  },
-
-
-  //  probability that a Tunneler will make an anteroom when changing direction or spawning
-  //      tunnelWidth =   0    1    2   3   4    5    6    7    8   ...
-  anteroomProbability: [ 20,  30,  0,  0,  100 ],
-  //  value 100 ends the input and repeats for larger tunnels
-  //  here we have anterooms only on narrow tunnels
-  //  these parameters are important for the appearance of the level
-
-  roomSizes: {
-    small: [ 20, 39 ],
-    medium: [ 40, 79 ],
-    large: [ 80, 150 ]
-  },
-
-  maxRooms: {
-    small: 400,
-    medium: 120,
-    large: 16
-  },
-
-
-  //  probabilities to use a room of a certain size depending on tunnelWidth
-  roomSizeProbability: {
-    // rooms coming out sideways from the tunnel. index specifies tunnel width
-    sideways: [
-      {
-        small: 100,
-        medium: 0,
-        large: 0
-      },
-      {
-        small: 50,
-        medium: 50,
-        large: 0
-      },
-      {
-        small: 0,
-        medium: 100,
-        large: 0
-      },
-      {
-        small: 0,
-        medium: 0,
-        large: 100
-      }
-    ],
-    // rooms at branching sites. index specifies tunnel width
-    branching: [
-      {
-        small: 100,
-        medium: 0,
-        large: 0
-      },
-      {
-        small: 0,
-        medium: 100,
-        large: 0
-      },
-      {
-        small: 0,
-        medium: 0,
-        large: 100
-      }
-    ]
-  },
-  //  all probabilities should add up to 100 per tunnel width
-  //  input ends when large is at 100, then repeats at 100% large rooms
-  //  very important - use this to make sure that larger rooms are on larger tunnels
-
-
-  //  maxSteps for generations of Tunneler. last value is repeated for further generations
-  //             gen = 0   1    2    3    4    5    6    7    8    9    10   11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30
-  tunnelerMaxSteps: [ 5,  12,  12,  15,  15,  15,  15,  15,  15,  20,  30,  10, 15, 10, 3,  20, 10, 5,  15, 10, 5,  20, 20, 20, 20, 10, 20, 5,  20, 5,  0 ],
-
-
-  // changes Tunneler parameters between generations. less change with smaller mutator
-  mutator: 20,
-
-  // roomAspectRatio <= length/width and width/length of rooms must be larger than this
-  roomAspectRatio: 0.4,
-
-  // probability that 2 adacent rooms will be connected to each other via a door (0 is 0%, 1 is 100%)
-  roomConnectionProbability: 0.4,
-
-  // the normal generational delay is divided by this value to give the actual generational delay -
-  // to prevent anterooms without tunnels branching off them, an ugly sight if too frequent
-  //genSpeedUpOnAnteRoom: 4
-
-  // the minimum amount of space required between rooms
-  minRoomSpacing: 1,
-
-  // "last-chance-Tunnelers" are created when a Tunneler runs out of room
-  lastChanceTunneler: {
-    makeRoomsLeftProb: 100,
-    makeRoomsRightProb: 100,
-    changeDirectionProb: 40,
-    straightDoubleSpawnProb: 30,
-    turnDoubleSpawnProb: 80,
-    // high values make the tunneler prefer to join another tunnel or open space
-    // low values it prefers to end its run by building a room
-    joinProb: 50
-  },
-
-  // used for tunnelers that are created at room exits
-  roomExitTunneler: {
-    // tunneler will be deleted after having made at most maxSteps steps
-    maxSteps: 12,
-    // the generation this tunneler will be born
-    generation: 0,
-    // number of squares covered in one step
-    stepLength: 7,
-    tunnelWidth: 1,
-    straightDoubleSpawnProb: 40,
-    turnDoubleSpawnProb: 60,
-    // probability that the tunneler changes direction at the end of one step
-    changeDirectionProb: 40,
-    makeRoomsRightProb: 100,
-    makeRoomsLeftProb: 100,
-    // high values make the tunneler prefer to join another tunnel or open space
-    // low values it prefers to end its run by building a room
-    joinProb: 50
-  },
-
-
-  tunnelers: [ ]
-};
-
-},{}],11:[function(require,module,exports){
-class Door {
-  constructor(init) {
-    Object.assign(this, init)
-    this.type = 'door'
-    //this.direction = null
-    this.to = {}
-  }
-}
-
-module.exports = Door
-
-},{}],12:[function(require,module,exports){
 'use strict'
 
 const Generator = require('../')
@@ -638,9 +85,9 @@ canvas.addEventListener('mousedown', function(ev) {
   })
 })
 
-},{"../":18,"raf":16}],13:[function(require,module,exports){
+},{"../":6,"raf":5}],2:[function(require,module,exports){
 
-},{}],14:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 (function (process){
 // Generated by CoffeeScript 1.12.2
 (function() {
@@ -680,7 +127,7 @@ canvas.addEventListener('mousedown', function(ev) {
 
 
 }).call(this,require('_process'))
-},{"_process":15}],15:[function(require,module,exports){
+},{"_process":4}],4:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -866,7 +313,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],16:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 (function (global){
 var now = require('performance-now')
   , root = typeof window === 'undefined' ? global : window
@@ -942,43 +389,27 @@ module.exports.polyfill = function() {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"performance-now":14}],17:[function(require,module,exports){
-// given an array, get the value at the given index. if the index is larger than
-// the array, return the last element
-
-let getValue
-module.exports = (getValue = function(arr, index) {
-  if (arr.length === 0) {
-    console.log('ERROR: array length is zero')
-    return null
-  }
-  if (index >= arr.length) {
-    return arr[arr.length-1]
-  }
-  return arr[index]
-})
-
-},{}],18:[function(require,module,exports){
-const Anteroom      = require('./anteroom')
-const Door          = require('./door')
-const QuadTree      = require('./qtree')
-const Room          = require('./room')
-const Roomie        = require('./roomie')
-const Tunneler      = require('./tunneler')
-const buildGraph    = require('./build-graph')
-const constants     = require('./constants')
-const designDefault = require('./design-default')
-const expandAABB    = require('./aabb-expand')
-const getPortal     = require('./aabb-portal')
-const intersect1D   = require('./1d-intersect')
-const intersectAABB = require('./aabb-intersect')
-const levelFurnish  = require('./level-furnish')
-const moveAABB      = require('./aabb-move')
-const overlaps      = require('./aabb-overlaps')
-const random        = require('./random')
+},{"performance-now":3}],6:[function(require,module,exports){
+const Anteroom      = require('./lib/anteroom')
+const Door          = require('./lib/door')
+const QuadTree      = require('./lib/qtree')
+const Room          = require('./lib/room')
+const Roomie        = require('./lib/roomie')
+const Tunneler      = require('./lib/tunneler')
+const buildGraph    = require('./lib/build-graph')
+const constants     = require('./lib/constants')
+const designDefault = require('./lib/design-default')
+const expandAABB    = require('./lib/aabb-expand')
+const getPortal     = require('./lib/aabb-portal')
+const intersect1D   = require('./lib/1d-intersect')
+const intersectAABB = require('./lib/aabb-intersect')
+const levelFurnish  = require('./lib/level-furnish')
+const moveAABB      = require('./lib/aabb-move')
+const overlaps      = require('./lib/aabb-overlaps')
+const random        = require('./lib/random')
 const removeItems   = require('remove-array-items')
 const seed          = require('seedrandom')
-const turn90        = require('./turn-90')
+const turn90        = require('./lib/turn-90')
 //const zeros         = require('zeros')
 
 
@@ -1814,7 +1245,576 @@ class LevelGenerator {
 
 module.exports = LevelGenerator
 
-},{"./1d-intersect":1,"./aabb-expand":2,"./aabb-intersect":3,"./aabb-move":4,"./aabb-overlaps":5,"./aabb-portal":6,"./anteroom":7,"./build-graph":8,"./constants":9,"./design-default":10,"./door":11,"./level-furnish":19,"./qtree":32,"./random":35,"./room":36,"./roomie":37,"./tunneler":39,"./turn-90":40,"remove-array-items":23,"seedrandom":24}],19:[function(require,module,exports){
+},{"./lib/1d-intersect":7,"./lib/aabb-expand":8,"./lib/aabb-intersect":9,"./lib/aabb-move":10,"./lib/aabb-overlaps":11,"./lib/aabb-portal":12,"./lib/anteroom":13,"./lib/build-graph":14,"./lib/constants":15,"./lib/design-default":16,"./lib/door":17,"./lib/level-furnish":19,"./lib/qtree":22,"./lib/random":25,"./lib/room":26,"./lib/roomie":27,"./lib/tunneler":29,"./lib/turn-90":30,"remove-array-items":33,"seedrandom":34}],7:[function(require,module,exports){
+let intersect1D
+const inRange = (idx, start, end) => (idx >= start) && (idx <= end)
+
+
+// returns the intersecting parts of 2 1D line segments, or null
+module.exports = (intersect1D = function(startA, endA, startB, endB) {
+  // determine full extent
+  let end
+  const min = Math.min(startA, startB)
+  const max = Math.max(endA, endB)
+
+  if (min === max) {
+    return [ min, min ]
+  }
+
+  let begin = null
+  for (let idx = min, end1 = max, asc = min <= end1; asc ? idx <= end1 : idx >= end1; asc ? idx++ : idx--) {
+    if (begin === null) {
+      if (inRange(idx, startA, endA) && inRange(idx, startB, endB)) {
+        begin = idx
+      }
+    } else {
+      if (inRange(idx, startA, endA) && inRange(idx, startB, endB)) {
+        end = idx
+      } else {
+        end = end || begin
+        return [ begin, end ]
+      }
+    }
+  }
+
+  if (!begin) { return null }
+
+  end = end || begin
+  return [ begin, end ]
+})
+
+},{}],8:[function(require,module,exports){
+let expandAABB
+const expansionVectors = {
+  NORTH: { x: 0, y: -1, width: 0, height: 1 },
+  SOUTH: { x: 0, y: 0, width: 0, height: 1 },
+  EAST : { x: 0, y: 0, width: 1, height: 0 },
+  WEST : { x: -1, y: 0, width: 1, height: 0 }
+}
+
+
+const PROPS = [ 'x', 'y', 'width', 'height']
+
+module.exports = (expandAABB = function(aabb, direction, amount) {
+  if (amount == null) { amount = 1 }
+  const result = {}
+
+  for (let dim of Array.from(PROPS)) {
+    result[dim] = aabb[dim] + (expansionVectors[direction][dim] * amount)
+  }
+
+  return result
+})
+
+},{}],9:[function(require,module,exports){
+/*
+This test uses a separating axis test, which checks for overlaps between the
+two boxes on each axis. If either axis is not overlapping, the boxes aren’t
+colliding.
+*/
+let intersectAABB
+module.exports = (intersectAABB = function(rect, rect2) {
+  const dx = (rect2.x + (rect2.width/2)) - (rect.x + (rect.width/2))
+  const px = ((rect2.width/2) + (rect.width/2)) - Math.abs(dx)
+  if (px <= 0) { return false }
+
+  const dy = (rect2.y + (rect2.height/2)) - (rect.y + (rect.height/2))
+  const py = ((rect2.height/2) + (rect.height/2)) - Math.abs(dy)
+  if (py <= 0) { return false }
+
+  return true
+})
+
+},{}],10:[function(require,module,exports){
+let moveAABB
+const movementVectors = {
+  NORTH: { x: 0, y: -1 },
+  SOUTH: { x: 0, y: 1 },
+  EAST:  { x: 1, y: 0 },
+  WEST:  { x: -1, y: 0 }
+}
+
+
+module.exports = (moveAABB = function(aabb, direction, amount) {
+  if (amount == null) { amount = 1 }
+  const vec = movementVectors[direction]
+  if ((!(amount > 0)) || !vec) { return aabb }
+  aabb.x += (vec.x * amount)
+  aabb.y += (vec.y * amount)
+  return aabb
+})
+
+},{}],11:[function(require,module,exports){
+// determine if an AABB overlaps a set of existing AABBs
+let overlaps
+const intersects = require('./aabb-intersect')
+
+
+const aabbs = []  // simple AABB object pool
+
+// return true if 2 rectangles overlap. minPadding specifies minimum spacing
+// between the rectangles
+module.exports = (overlaps = function(rectA, rectB, minPadding) {
+  if (minPadding == null) { minPadding = 1 }
+  let b = aabbs.pop()
+  if (!b) {
+    b = {x: 0, y: 0, width: 0, height: 0}
+  }
+
+  b.x = rectB.x
+  b.y = rectB.y
+  b.width = rectB.width
+  b.height = rectB.height
+
+  // inflate the size of rectB by 1 unit in each dimension
+  b.x -= minPadding
+  b.width += (minPadding * 2)
+
+  b.y -= minPadding
+  b.height += (minPadding * 2)
+
+  // check rectA and the inflated rectB for overlap
+  const result = intersects(rectA, b)
+  aabbs.push(b)
+  return result
+})
+
+},{"./aabb-intersect":9}],12:[function(require,module,exports){
+let getPortal
+const intersect1D = require('./1d-intersect')
+
+
+// really nice line segment intersection test:
+// https://github.com/tmpvar/segseg/blob/master/test/index.js
+
+// given 2 AABBs, determine the portal (line segment) spanning the
+// open space that connects them. returns null if they aren't adjacent
+module.exports = (getPortal = function(aabb, next) {
+  // check if AABBs are lined up on x axis ( side by side with 1 space between)
+  let intersection, x
+  if (((aabb.x+aabb.width) === next.x)  ||  ((aabb.x) === (next.x + next.width))) {
+    intersection = intersect1D(aabb.y, aabb.y+aabb.height, next.y, next.y+next.height)
+
+    if (!intersection) { return null }
+
+    if ((aabb.x+aabb.width) === next.x) {
+      x = aabb.x+aabb.width
+    } else {
+      x = next.x + next.width
+    }
+
+    return [ { x, y: intersection[0] }, { x, y: intersection[1] } ]
+  }
+
+  // check if aabbs are lined up on y axis ( on top of each other with 1 space between)
+  if (((aabb.y+aabb.height) === next.y)  ||  ((aabb.y) === (next.y + next.height))) {
+    let y
+    intersection = intersect1D(aabb.x, aabb.x+aabb.width, next.x, next.x+next.width)
+
+    if (!intersection) { return null }
+
+    if ((aabb.y+aabb.height) === next.y) {
+      y = aabb.y+aabb.height
+    } else {
+      y = next.y + next.height
+    }
+
+    return [ { x: intersection[0], y }, { x: intersection[1], y } ]
+  }
+
+  return null
+})
+
+},{"./1d-intersect":7}],13:[function(require,module,exports){
+class Anteroom {
+  constructor(centerX, centerY, tunnelWidth) {
+    this.type = 'anteroom'
+    this.to = {}
+
+    // TODO: build a large or small anteroom depending on size available (build largest possible)
+    //       small: tunnelWidth + 1    large: tunnelWidth + 3
+
+    // determine anteroom size based on tunnel width
+    const roomRadius = tunnelWidth + 1
+    this.x = centerX - roomRadius
+    this.y = centerY - roomRadius
+
+    // anteroom is always odd width/height
+    this.width = (roomRadius * 2) + 1
+    this.height = (roomRadius * 2) + 1
+  }
+
+
+  // given a direction, return the aabb for the exit centered on that edge where the door would be
+  // e.g., getCenteredExitPosition('NORTH') give the x,y position on the top center exit
+  getCenteredDoor(direction) {
+    const aabb = { width: 1, height: 1 }
+    const halfHeight = this.height/2
+    const halfWidth = this.width/ 2
+
+    if (direction === 'EAST') {
+      aabb.x = this.x + this.width
+      aabb.y = Math.floor(this.y + halfHeight)
+    } else if (direction === 'WEST') {
+      aabb.x = this.x - 1
+      aabb.y = Math.floor(this.y + halfHeight)
+    } else if (direction === 'NORTH') {
+      aabb.x = Math.floor(this.x + halfWidth)
+      aabb.y = this.y - 1
+    } else {
+      aabb.x = Math.floor(this.x + halfWidth)
+      aabb.y = this.y + this.height
+    }
+    return aabb
+  }
+
+
+  // given a direction, return the aabb for the exit centered on that edge
+  // e.g., getCenteredExitPosition('NORTH') give the x,y position on the top center exit
+  getCenteredExit(direction) {
+    const aabb = { width: 1, height: 1 }
+    if (direction === 'EAST') {
+      aabb.x = (this.x + this.width) - 1
+      aabb.y = Math.floor(this.y + (this.height/2))
+    } else if (direction === 'WEST') {
+      aabb.x = this.x
+      aabb.y = Math.floor(this.y + (this.height/2))
+    } else if (direction === 'NORTH') {
+      aabb.x = Math.floor(this.x + (this.width/2))
+      aabb.y = this.y
+    } else {
+      aabb.x = Math.floor(this.x + (this.width/2))
+      aabb.y = (this.y + this.height) - 1
+    }
+    return aabb
+  }
+
+
+  isValid(level, parentTunnel) {
+    if (!level.contains(this)) { return false }
+
+    // anteroom must not overlap with existing level rooms/tunnels/anterooms
+    const minRoomSpacing = 1
+    const minAnteroomSpacing = 1
+    const minTunnelSpacing = 0
+    const ignoreEntity = parentTunnel
+    if (level.overlaps(this, minRoomSpacing, minAnteroomSpacing, minTunnelSpacing, ignoreEntity)) {
+      return false
+    }
+    return true
+  }
+}
+
+
+module.exports = Anteroom
+
+},{}],14:[function(require,module,exports){
+let buildGraph
+const getPortal = require('./aabb-portal')
+
+
+// build graph of connected room doors, anterooms, and tunnels
+module.exports = (buildGraph = function(objects) {
+  // create all of the connection data structures
+  for (var obj of Array.from(objects)) {
+    obj.to = {}
+  }
+
+  return (() => {
+    const result = []
+    for (obj of Array.from(objects)) {
+      result.push(objects.forEach(function(entity, idx) {
+        if (entity.id !== obj.id) {
+          const portal = getPortal(obj, entity)
+          if (portal) {
+            obj.to[entity.id] = {entity, portal}
+            return entity.to[obj.id] = {entity: obj, portal}
+          }
+        }
+      }))
+    }
+    return result
+  })()
+})
+
+},{"./aabb-portal":12}],15:[function(require,module,exports){
+module.exports = {
+  OPEN: 0,
+  DOOR_NORTH_SOUTH: 1,
+  DOOR_EAST_WEST: 2,
+  ROOM: 3,
+  ROOM_PREFAB: 4,
+  ANTEROOM: 5,
+  TUNNEL: 6
+}
+
+},{}],16:[function(require,module,exports){
+module.exports = {
+  // the default random seed that will be used when this design file is first used in a program run.
+  // enabling this line will result in the same random numbers used each time, making random levels reproducible
+
+  // weird tunnel overlap with prefab room caused by something in _mergeTunnels()
+  //randSeed: 0.7956894984385063
+
+  //randSeed: 0.05407006067002862
+
+  // produces very nice looking level, harcode this to test with for now
+  //randSeed: 0.9342698135762848,
+
+  // dimensions of the level to create
+  dimensions: {
+    width : 350,
+    height: 250
+  },
+
+  // initial "prefab" rooms
+  // these rooms are special, in that they can't be tunneled into.
+  // useful when you want to place predefined elements in an area.
+  rooms: [
+    {
+      x: 20,
+      y: 20,
+      width: 13,
+      height: 9,
+      doors: [
+        {
+          x: 33,
+          y: 26,
+          width: 1,
+          height: 1
+        }
+      ]
+    },
+    {
+      x: 200,
+      y: 100,
+      width: 17,
+      height: 13,
+      doors: [
+        {
+          x: 199,
+          y: 105,
+          width: 1,
+          height: 1
+        }
+      ]
+    },
+    {
+      x: 90,
+      y: 200,
+      width: 7,
+      height: 5,
+      doors: [
+        {
+          x: 89,
+          y: 202,
+          width: 1,
+          height: 1
+        }
+      ]
+    }
+  ],
+
+  //  the following parameters are very important: Builders born in
+  //  earlier generations will tend to dominate (fill) the map
+
+  //  probabilities that a baby Roomie will be born after i generations
+  //  indices above 10 are illegal, enter integer values for all 11 indices
+  //       i =   0    1    2     3    4    5    6    7    8    9    10
+  babyRoomie: [ 0,   0,   50,   50,  0,   0,   0,   0,   0,   0,   0 ],
+  //  values must add up to 100
+
+
+  babyTunnelers: {
+    //  probabilities that a baby Tunneler will be born after i generations
+    //  (applicable only for those Tunnelers who are not larger than their parents -
+    //  - for those larger than their parents, use sizeUpGenDelay)
+    //  indices above 10 are illegal, enter integer values for all 11 indices
+    //                       i =   0    1    2      3    4    5    6    7    8    9    10
+    generationBirthProbability: [ 0,   0,   100,   0,   0,   0,   0,   0,   0,   0,   0 ],
+    //  values must add up to 100
+
+    //  probabilities that a baby Tunneler of generation gen will have a tunnelWidth 2 size larger than its parent
+    //  last value is repeated for further generations
+    //            gen =   0   1    2    3   4   5     6     7    8   9   10  11 12 13 14 15 16 17 18 19 20
+    sizeUpProbability: [ 0,  50,  50,  0,  0,  75,  75,  30 ],
+
+
+    //  probabilities that a baby Tunneler of generation gen will have a tunnelWidth 2 size smaller than its parent
+    //  last value is repeated for further generations
+    //              gen =   0   1   2    3     4     5   6   7    8   9   10  11 12 13 14 15 16 17 18 19 20
+    sizeDownProbability: [ 0,  0,  50,  100,  100,  0,  0,  70 ],
+
+    //  for every generation, 100 - (sizeUpProb(gen) + sizeDownProb(gen) = probability that size remains the same,
+    //  and this value must be >= 0
+    //  in this example tunnels first get narrower, then rapidly larger in generation 5
+    //  this ensures that larger tunnels are far from the entrance
+    //  actually, the level is too small to let that happen
+    //  after generation 6 there is a random element, tunnels can get larger or smaller
+
+    // high values make the tunneler prefer to join another tunnel or open space
+    // low values means it prefers to end its run by building a room
+    // last value is repeated for further generations
+    //            gen = 0   1   2    3     4
+    joinProbability: [ 0,  0,  10,  100,  100 ]
+  },
+
+
+  //  probability that a Tunneler will make an anteroom when changing direction or spawning
+  //      tunnelWidth =   0    1    2   3   4    5    6    7    8   ...
+  anteroomProbability: [ 20,  30,  0,  0,  100 ],
+  //  value 100 ends the input and repeats for larger tunnels
+  //  here we have anterooms only on narrow tunnels
+  //  these parameters are important for the appearance of the level
+
+  roomSizes: {
+    small: [ 20, 39 ],
+    medium: [ 40, 79 ],
+    large: [ 80, 150 ]
+  },
+
+  maxRooms: {
+    small: 400,
+    medium: 120,
+    large: 16
+  },
+
+
+  //  probabilities to use a room of a certain size depending on tunnelWidth
+  roomSizeProbability: {
+    // rooms coming out sideways from the tunnel. index specifies tunnel width
+    sideways: [
+      {
+        small: 100,
+        medium: 0,
+        large: 0
+      },
+      {
+        small: 50,
+        medium: 50,
+        large: 0
+      },
+      {
+        small: 0,
+        medium: 100,
+        large: 0
+      },
+      {
+        small: 0,
+        medium: 0,
+        large: 100
+      }
+    ],
+    // rooms at branching sites. index specifies tunnel width
+    branching: [
+      {
+        small: 100,
+        medium: 0,
+        large: 0
+      },
+      {
+        small: 0,
+        medium: 100,
+        large: 0
+      },
+      {
+        small: 0,
+        medium: 0,
+        large: 100
+      }
+    ]
+  },
+  //  all probabilities should add up to 100 per tunnel width
+  //  input ends when large is at 100, then repeats at 100% large rooms
+  //  very important - use this to make sure that larger rooms are on larger tunnels
+
+
+  //  maxSteps for generations of Tunneler. last value is repeated for further generations
+  //             gen = 0   1    2    3    4    5    6    7    8    9    10   11  12  13  14  15  16  17  18  19  20  21  22  23  24  25  26  27  28  29  30
+  tunnelerMaxSteps: [ 5,  12,  12,  15,  15,  15,  15,  15,  15,  20,  30,  10, 15, 10, 3,  20, 10, 5,  15, 10, 5,  20, 20, 20, 20, 10, 20, 5,  20, 5,  0 ],
+
+
+  // changes Tunneler parameters between generations. less change with smaller mutator
+  mutator: 20,
+
+  // roomAspectRatio <= length/width and width/length of rooms must be larger than this
+  roomAspectRatio: 0.4,
+
+  // probability that 2 adacent rooms will be connected to each other via a door (0 is 0%, 1 is 100%)
+  roomConnectionProbability: 0.4,
+
+  // the normal generational delay is divided by this value to give the actual generational delay -
+  // to prevent anterooms without tunnels branching off them, an ugly sight if too frequent
+  //genSpeedUpOnAnteRoom: 4
+
+  // the minimum amount of space required between rooms
+  minRoomSpacing: 1,
+
+  // "last-chance-Tunnelers" are created when a Tunneler runs out of room
+  lastChanceTunneler: {
+    makeRoomsLeftProb: 100,
+    makeRoomsRightProb: 100,
+    changeDirectionProb: 40,
+    straightDoubleSpawnProb: 30,
+    turnDoubleSpawnProb: 80,
+    // high values make the tunneler prefer to join another tunnel or open space
+    // low values it prefers to end its run by building a room
+    joinProb: 50
+  },
+
+  // used for tunnelers that are created at room exits
+  roomExitTunneler: {
+    // tunneler will be deleted after having made at most maxSteps steps
+    maxSteps: 12,
+    // the generation this tunneler will be born
+    generation: 0,
+    // number of squares covered in one step
+    stepLength: 7,
+    tunnelWidth: 1,
+    straightDoubleSpawnProb: 40,
+    turnDoubleSpawnProb: 60,
+    // probability that the tunneler changes direction at the end of one step
+    changeDirectionProb: 40,
+    makeRoomsRightProb: 100,
+    makeRoomsLeftProb: 100,
+    // high values make the tunneler prefer to join another tunnel or open space
+    // low values it prefers to end its run by building a room
+    joinProb: 50
+  },
+
+
+  tunnelers: [ ]
+};
+
+},{}],17:[function(require,module,exports){
+class Door {
+  constructor(init) {
+    Object.assign(this, init)
+    this.type = 'door'
+    //this.direction = null
+    this.to = {}
+  }
+}
+
+module.exports = Door
+
+},{}],18:[function(require,module,exports){
+// given an array, get the value at the given index. if the index is larger than
+// the array, return the last element
+
+let getValue
+module.exports = (getValue = function(arr, index) {
+  if (arr.length === 0) {
+    console.log('ERROR: array length is zero')
+    return null
+  }
+  if (index >= arr.length) {
+    return arr[arr.length-1]
+  }
+  return arr[index]
+})
+
+},{}],19:[function(require,module,exports){
 let furnish
 const LootTable = require('loot-table')
 
@@ -1923,7 +1923,7 @@ module.exports = (furnish = function(objects, theme, options) {
   return allMachines
 })
 
-},{"./parse-machine-config":20,"loot-table":22}],20:[function(require,module,exports){
+},{"./parse-machine-config":20,"loot-table":32}],20:[function(require,module,exports){
 let parse
 const optionalFloat = function(num) {
   if (num === '-') {
@@ -2006,1092 +2006,7 @@ module.exports = (mutate = function(input, amount) {
   return output
 })
 
-},{"./random":35}],22:[function(require,module,exports){
-/**
- * Copyright © 2015 John Watson
- * Licensed under the terms of the MIT License
- * ---
- * LootTable is used to make a random choice among a weighted list of alternatives
- * for item drops, map generation, and many other processes. Here's a good overview
- * of loot tables: http://www.lostgarden.com/2014/12/loot-drop-tables.html
- *
- * Example:
- *
- * var loot = new LootTable();
- * loot.add('sword', 20);
- * loot.add('shield', 5);
- * loot.add('gold', 5);
- * loot.add(null, 1);
- * var item = loot.choose(); // most likely a sword, sometimes null
- */
-
-(function (root, factory) {
-    if (typeof define === 'function' && define.amd) {
-        // AMD. Register as an anonymous module.
-        define([], factory);
-    } else if (typeof exports === 'object') {
-        // Node. Does not work with strict CommonJS, but
-        // only CommonJS-like environments that support module.exports,
-        // like Node.
-        module.exports = factory();
-    } else {
-        // Browser globals (root is window)
-        root.returnExports = factory();
-  }
-}(this, function () {
-
-    var LootTable = function(table) {
-        this.table = [];
-        if (table !== undefined) this.table = table;
-    };
-
-    LootTable.prototype.constructor = LootTable;
-
-    LootTable.prototype.clear = function() {
-        this.table.length = 0;
-    };
-
-    /**
-     * Add an item
-     *
-     * Weights are arbitrary, not percentages, and don't need to add up to 100.
-     * If one item has a weight of 2 and another has a weight of 1, the first item
-     * is twice as likely to be chosen. If quantity is given, then calls to choose()
-     * will only return that item while some are available. Each choose() that
-     * selects that item will reduce its quantity by 1.
-     *
-     * Item can be anything, not just strings. It could be an array, a number, JSON
-     * data, null, a function... even another LootTable!
-     * 
-     * @param {mixed} item      The item to be chosen
-     * @param {number} weight   (optional) The weight of the item, defaults to 1
-     * @param {number} quantity (optional) Quantity available, defaults to Infinite
-     */
-    LootTable.prototype.add = function(item, weight, quantity) {
-        if (weight === undefined || weight === null || weight <= 0) weight = 1;
-        if (quantity === undefined || quantity === null || quantity <= 0) quantity = Number.POSITIVE_INFINITY;
-        this.table.push({ item: item, weight: weight, quantity: quantity });
-    };
-
-    /**
-     * Return a random item from the LootTable
-     */
-    LootTable.prototype.choose = function() {
-        if (this.table.length === 0) return null;
-        
-        var i, v;
-        var totalWeight = 0;
-        for(i = 0; i < this.table.length; i++) {
-            v = this.table[i];
-            if (v.quantity > 0) {
-                totalWeight += v.weight;
-            }
-        }
-
-        var choice = 0;
-        var randomNumber = Math.floor(Math.random() * totalWeight + 1);
-        var weight = 0;
-        for(i = 0; i < this.table.length; i++) {
-            v = this.table[i];
-            if (v.quantity <= 0) continue;
-
-            weight += v.weight;
-            if (randomNumber <= weight) {
-                choice = i;
-                break;
-            }
-        }
-
-        var chosenItem = this.table[choice];
-        this.table[choice].quantity--;
-
-        return chosenItem.item;
-    };
-
-    return LootTable;
-}));
-
-},{}],23:[function(require,module,exports){
-'use strict'
-
-/**
- * Remove a range of items from an array
- *
- * @function removeItems
- * @param {Array<*>} arr The target array
- * @param {number} startIdx The index to begin removing from (inclusive)
- * @param {number} removeCount How many items to remove
- */
-module.exports = function removeItems(arr, startIdx, removeCount)
-{
-  var i, length = arr.length
-
-  if (startIdx >= length || removeCount === 0) {
-    return
-  }
-
-  removeCount = (startIdx + removeCount > length ? length - startIdx : removeCount)
-
-  var len = length - removeCount
-
-  for (i = startIdx; i < len; ++i) {
-    arr[i] = arr[i + removeCount]
-  }
-
-  arr.length = len
-}
-
-},{}],24:[function(require,module,exports){
-// A library of seedable RNGs implemented in Javascript.
-//
-// Usage:
-//
-// var seedrandom = require('seedrandom');
-// var random = seedrandom(1); // or any seed.
-// var x = random();       // 0 <= x < 1.  Every bit is random.
-// var x = random.quick(); // 0 <= x < 1.  32 bits of randomness.
-
-// alea, a 53-bit multiply-with-carry generator by Johannes Baagøe.
-// Period: ~2^116
-// Reported to pass all BigCrush tests.
-var alea = require('./lib/alea');
-
-// xor128, a pure xor-shift generator by George Marsaglia.
-// Period: 2^128-1.
-// Reported to fail: MatrixRank and LinearComp.
-var xor128 = require('./lib/xor128');
-
-// xorwow, George Marsaglia's 160-bit xor-shift combined plus weyl.
-// Period: 2^192-2^32
-// Reported to fail: CollisionOver, SimpPoker, and LinearComp.
-var xorwow = require('./lib/xorwow');
-
-// xorshift7, by François Panneton and Pierre L'ecuyer, takes
-// a different approach: it adds robustness by allowing more shifts
-// than Marsaglia's original three.  It is a 7-shift generator
-// with 256 bits, that passes BigCrush with no systmatic failures.
-// Period 2^256-1.
-// No systematic BigCrush failures reported.
-var xorshift7 = require('./lib/xorshift7');
-
-// xor4096, by Richard Brent, is a 4096-bit xor-shift with a
-// very long period that also adds a Weyl generator. It also passes
-// BigCrush with no systematic failures.  Its long period may
-// be useful if you have many generators and need to avoid
-// collisions.
-// Period: 2^4128-2^32.
-// No systematic BigCrush failures reported.
-var xor4096 = require('./lib/xor4096');
-
-// Tyche-i, by Samuel Neves and Filipe Araujo, is a bit-shifting random
-// number generator derived from ChaCha, a modern stream cipher.
-// https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
-// Period: ~2^127
-// No systematic BigCrush failures reported.
-var tychei = require('./lib/tychei');
-
-// The original ARC4-based prng included in this library.
-// Period: ~2^1600
-var sr = require('./seedrandom');
-
-sr.alea = alea;
-sr.xor128 = xor128;
-sr.xorwow = xorwow;
-sr.xorshift7 = xorshift7;
-sr.xor4096 = xor4096;
-sr.tychei = tychei;
-
-module.exports = sr;
-
-},{"./lib/alea":25,"./lib/tychei":26,"./lib/xor128":27,"./lib/xor4096":28,"./lib/xorshift7":29,"./lib/xorwow":30,"./seedrandom":31}],25:[function(require,module,exports){
-// A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
-// http://baagoe.com/en/RandomMusings/javascript/
-// https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
-// Original work is under MIT license -
-
-// Copyright (C) 2010 by Johannes Baagøe <baagoe@baagoe.org>
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-// 
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-// 
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
-
-
-(function(global, module, define) {
-
-function Alea(seed) {
-  var me = this, mash = Mash();
-
-  me.next = function() {
-    var t = 2091639 * me.s0 + me.c * 2.3283064365386963e-10; // 2^-32
-    me.s0 = me.s1;
-    me.s1 = me.s2;
-    return me.s2 = t - (me.c = t | 0);
-  };
-
-  // Apply the seeding algorithm from Baagoe.
-  me.c = 1;
-  me.s0 = mash(' ');
-  me.s1 = mash(' ');
-  me.s2 = mash(' ');
-  me.s0 -= mash(seed);
-  if (me.s0 < 0) { me.s0 += 1; }
-  me.s1 -= mash(seed);
-  if (me.s1 < 0) { me.s1 += 1; }
-  me.s2 -= mash(seed);
-  if (me.s2 < 0) { me.s2 += 1; }
-  mash = null;
-}
-
-function copy(f, t) {
-  t.c = f.c;
-  t.s0 = f.s0;
-  t.s1 = f.s1;
-  t.s2 = f.s2;
-  return t;
-}
-
-function impl(seed, opts) {
-  var xg = new Alea(seed),
-      state = opts && opts.state,
-      prng = xg.next;
-  prng.int32 = function() { return (xg.next() * 0x100000000) | 0; }
-  prng.double = function() {
-    return prng() + (prng() * 0x200000 | 0) * 1.1102230246251565e-16; // 2^-53
-  };
-  prng.quick = prng;
-  if (state) {
-    if (typeof(state) == 'object') copy(state, xg);
-    prng.state = function() { return copy(xg, {}); }
-  }
-  return prng;
-}
-
-function Mash() {
-  var n = 0xefc8249d;
-
-  var mash = function(data) {
-    data = data.toString();
-    for (var i = 0; i < data.length; i++) {
-      n += data.charCodeAt(i);
-      var h = 0.02519603282416938 * n;
-      n = h >>> 0;
-      h -= n;
-      h *= n;
-      n = h >>> 0;
-      h -= n;
-      n += h * 0x100000000; // 2^32
-    }
-    return (n >>> 0) * 2.3283064365386963e-10; // 2^-32
-  };
-
-  return mash;
-}
-
-
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-} else {
-  this.alea = impl;
-}
-
-})(
-  this,
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define   // present with an AMD loader
-);
-
-
-
-},{}],26:[function(require,module,exports){
-// A Javascript implementaion of the "Tyche-i" prng algorithm by
-// Samuel Neves and Filipe Araujo.
-// See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
-
-(function(global, module, define) {
-
-function XorGen(seed) {
-  var me = this, strseed = '';
-
-  // Set up generator function.
-  me.next = function() {
-    var b = me.b, c = me.c, d = me.d, a = me.a;
-    b = (b << 25) ^ (b >>> 7) ^ c;
-    c = (c - d) | 0;
-    d = (d << 24) ^ (d >>> 8) ^ a;
-    a = (a - b) | 0;
-    me.b = b = (b << 20) ^ (b >>> 12) ^ c;
-    me.c = c = (c - d) | 0;
-    me.d = (d << 16) ^ (c >>> 16) ^ a;
-    return me.a = (a - b) | 0;
-  };
-
-  /* The following is non-inverted tyche, which has better internal
-   * bit diffusion, but which is about 25% slower than tyche-i in JS.
-  me.next = function() {
-    var a = me.a, b = me.b, c = me.c, d = me.d;
-    a = (me.a + me.b | 0) >>> 0;
-    d = me.d ^ a; d = d << 16 ^ d >>> 16;
-    c = me.c + d | 0;
-    b = me.b ^ c; b = b << 12 ^ d >>> 20;
-    me.a = a = a + b | 0;
-    d = d ^ a; me.d = d = d << 8 ^ d >>> 24;
-    me.c = c = c + d | 0;
-    b = b ^ c;
-    return me.b = (b << 7 ^ b >>> 25);
-  }
-  */
-
-  me.a = 0;
-  me.b = 0;
-  me.c = 2654435769 | 0;
-  me.d = 1367130551;
-
-  if (seed === Math.floor(seed)) {
-    // Integer seed.
-    me.a = (seed / 0x100000000) | 0;
-    me.b = seed | 0;
-  } else {
-    // String seed.
-    strseed += seed;
-  }
-
-  // Mix in string seed, then discard an initial batch of 64 values.
-  for (var k = 0; k < strseed.length + 20; k++) {
-    me.b ^= strseed.charCodeAt(k) | 0;
-    me.next();
-  }
-}
-
-function copy(f, t) {
-  t.a = f.a;
-  t.b = f.b;
-  t.c = f.c;
-  t.d = f.d;
-  return t;
-};
-
-function impl(seed, opts) {
-  var xg = new XorGen(seed),
-      state = opts && opts.state,
-      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
-  prng.double = function() {
-    do {
-      var top = xg.next() >>> 11,
-          bot = (xg.next() >>> 0) / 0x100000000,
-          result = (top + bot) / (1 << 21);
-    } while (result === 0);
-    return result;
-  };
-  prng.int32 = xg.next;
-  prng.quick = prng;
-  if (state) {
-    if (typeof(state) == 'object') copy(state, xg);
-    prng.state = function() { return copy(xg, {}); }
-  }
-  return prng;
-}
-
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-} else {
-  this.tychei = impl;
-}
-
-})(
-  this,
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define   // present with an AMD loader
-);
-
-
-
-},{}],27:[function(require,module,exports){
-// A Javascript implementaion of the "xor128" prng algorithm by
-// George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
-
-(function(global, module, define) {
-
-function XorGen(seed) {
-  var me = this, strseed = '';
-
-  me.x = 0;
-  me.y = 0;
-  me.z = 0;
-  me.w = 0;
-
-  // Set up generator function.
-  me.next = function() {
-    var t = me.x ^ (me.x << 11);
-    me.x = me.y;
-    me.y = me.z;
-    me.z = me.w;
-    return me.w ^= (me.w >>> 19) ^ t ^ (t >>> 8);
-  };
-
-  if (seed === (seed | 0)) {
-    // Integer seed.
-    me.x = seed;
-  } else {
-    // String seed.
-    strseed += seed;
-  }
-
-  // Mix in string seed, then discard an initial batch of 64 values.
-  for (var k = 0; k < strseed.length + 64; k++) {
-    me.x ^= strseed.charCodeAt(k) | 0;
-    me.next();
-  }
-}
-
-function copy(f, t) {
-  t.x = f.x;
-  t.y = f.y;
-  t.z = f.z;
-  t.w = f.w;
-  return t;
-}
-
-function impl(seed, opts) {
-  var xg = new XorGen(seed),
-      state = opts && opts.state,
-      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
-  prng.double = function() {
-    do {
-      var top = xg.next() >>> 11,
-          bot = (xg.next() >>> 0) / 0x100000000,
-          result = (top + bot) / (1 << 21);
-    } while (result === 0);
-    return result;
-  };
-  prng.int32 = xg.next;
-  prng.quick = prng;
-  if (state) {
-    if (typeof(state) == 'object') copy(state, xg);
-    prng.state = function() { return copy(xg, {}); }
-  }
-  return prng;
-}
-
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-} else {
-  this.xor128 = impl;
-}
-
-})(
-  this,
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define   // present with an AMD loader
-);
-
-
-
-},{}],28:[function(require,module,exports){
-// A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
-//
-// This fast non-cryptographic random number generator is designed for
-// use in Monte-Carlo algorithms. It combines a long-period xorshift
-// generator with a Weyl generator, and it passes all common batteries
-// of stasticial tests for randomness while consuming only a few nanoseconds
-// for each prng generated.  For background on the generator, see Brent's
-// paper: "Some long-period random number generators using shifts and xors."
-// http://arxiv.org/pdf/1004.3115v1.pdf
-//
-// Usage:
-//
-// var xor4096 = require('xor4096');
-// random = xor4096(1);                        // Seed with int32 or string.
-// assert.equal(random(), 0.1520436450538547); // (0, 1) range, 53 bits.
-// assert.equal(random.int32(), 1806534897);   // signed int32, 32 bits.
-//
-// For nonzero numeric keys, this impelementation provides a sequence
-// identical to that by Brent's xorgens 3 implementaion in C.  This
-// implementation also provides for initalizing the generator with
-// string seeds, or for saving and restoring the state of the generator.
-//
-// On Chrome, this prng benchmarks about 2.1 times slower than
-// Javascript's built-in Math.random().
-
-(function(global, module, define) {
-
-function XorGen(seed) {
-  var me = this;
-
-  // Set up generator function.
-  me.next = function() {
-    var w = me.w,
-        X = me.X, i = me.i, t, v;
-    // Update Weyl generator.
-    me.w = w = (w + 0x61c88647) | 0;
-    // Update xor generator.
-    v = X[(i + 34) & 127];
-    t = X[i = ((i + 1) & 127)];
-    v ^= v << 13;
-    t ^= t << 17;
-    v ^= v >>> 15;
-    t ^= t >>> 12;
-    // Update Xor generator array state.
-    v = X[i] = v ^ t;
-    me.i = i;
-    // Result is the combination.
-    return (v + (w ^ (w >>> 16))) | 0;
-  };
-
-  function init(me, seed) {
-    var t, v, i, j, w, X = [], limit = 128;
-    if (seed === (seed | 0)) {
-      // Numeric seeds initialize v, which is used to generates X.
-      v = seed;
-      seed = null;
-    } else {
-      // String seeds are mixed into v and X one character at a time.
-      seed = seed + '\0';
-      v = 0;
-      limit = Math.max(limit, seed.length);
-    }
-    // Initialize circular array and weyl value.
-    for (i = 0, j = -32; j < limit; ++j) {
-      // Put the unicode characters into the array, and shuffle them.
-      if (seed) v ^= seed.charCodeAt((j + 32) % seed.length);
-      // After 32 shuffles, take v as the starting w value.
-      if (j === 0) w = v;
-      v ^= v << 10;
-      v ^= v >>> 15;
-      v ^= v << 4;
-      v ^= v >>> 13;
-      if (j >= 0) {
-        w = (w + 0x61c88647) | 0;     // Weyl.
-        t = (X[j & 127] ^= (v + w));  // Combine xor and weyl to init array.
-        i = (0 == t) ? i + 1 : 0;     // Count zeroes.
-      }
-    }
-    // We have detected all zeroes; make the key nonzero.
-    if (i >= 128) {
-      X[(seed && seed.length || 0) & 127] = -1;
-    }
-    // Run the generator 512 times to further mix the state before using it.
-    // Factoring this as a function slows the main generator, so it is just
-    // unrolled here.  The weyl generator is not advanced while warming up.
-    i = 127;
-    for (j = 4 * 128; j > 0; --j) {
-      v = X[(i + 34) & 127];
-      t = X[i = ((i + 1) & 127)];
-      v ^= v << 13;
-      t ^= t << 17;
-      v ^= v >>> 15;
-      t ^= t >>> 12;
-      X[i] = v ^ t;
-    }
-    // Storing state as object members is faster than using closure variables.
-    me.w = w;
-    me.X = X;
-    me.i = i;
-  }
-
-  init(me, seed);
-}
-
-function copy(f, t) {
-  t.i = f.i;
-  t.w = f.w;
-  t.X = f.X.slice();
-  return t;
-};
-
-function impl(seed, opts) {
-  if (seed == null) seed = +(new Date);
-  var xg = new XorGen(seed),
-      state = opts && opts.state,
-      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
-  prng.double = function() {
-    do {
-      var top = xg.next() >>> 11,
-          bot = (xg.next() >>> 0) / 0x100000000,
-          result = (top + bot) / (1 << 21);
-    } while (result === 0);
-    return result;
-  };
-  prng.int32 = xg.next;
-  prng.quick = prng;
-  if (state) {
-    if (state.X) copy(state, xg);
-    prng.state = function() { return copy(xg, {}); }
-  }
-  return prng;
-}
-
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-} else {
-  this.xor4096 = impl;
-}
-
-})(
-  this,                                     // window object or global
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define   // present with an AMD loader
-);
-
-},{}],29:[function(require,module,exports){
-// A Javascript implementaion of the "xorshift7" algorithm by
-// François Panneton and Pierre L'ecuyer:
-// "On the Xorgshift Random Number Generators"
-// http://saluc.engr.uconn.edu/refs/crypto/rng/panneton05onthexorshift.pdf
-
-(function(global, module, define) {
-
-function XorGen(seed) {
-  var me = this;
-
-  // Set up generator function.
-  me.next = function() {
-    // Update xor generator.
-    var X = me.x, i = me.i, t, v, w;
-    t = X[i]; t ^= (t >>> 7); v = t ^ (t << 24);
-    t = X[(i + 1) & 7]; v ^= t ^ (t >>> 10);
-    t = X[(i + 3) & 7]; v ^= t ^ (t >>> 3);
-    t = X[(i + 4) & 7]; v ^= t ^ (t << 7);
-    t = X[(i + 7) & 7]; t = t ^ (t << 13); v ^= t ^ (t << 9);
-    X[i] = v;
-    me.i = (i + 1) & 7;
-    return v;
-  };
-
-  function init(me, seed) {
-    var j, w, X = [];
-
-    if (seed === (seed | 0)) {
-      // Seed state array using a 32-bit integer.
-      w = X[0] = seed;
-    } else {
-      // Seed state using a string.
-      seed = '' + seed;
-      for (j = 0; j < seed.length; ++j) {
-        X[j & 7] = (X[j & 7] << 15) ^
-            (seed.charCodeAt(j) + X[(j + 1) & 7] << 13);
-      }
-    }
-    // Enforce an array length of 8, not all zeroes.
-    while (X.length < 8) X.push(0);
-    for (j = 0; j < 8 && X[j] === 0; ++j);
-    if (j == 8) w = X[7] = -1; else w = X[j];
-
-    me.x = X;
-    me.i = 0;
-
-    // Discard an initial 256 values.
-    for (j = 256; j > 0; --j) {
-      me.next();
-    }
-  }
-
-  init(me, seed);
-}
-
-function copy(f, t) {
-  t.x = f.x.slice();
-  t.i = f.i;
-  return t;
-}
-
-function impl(seed, opts) {
-  if (seed == null) seed = +(new Date);
-  var xg = new XorGen(seed),
-      state = opts && opts.state,
-      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
-  prng.double = function() {
-    do {
-      var top = xg.next() >>> 11,
-          bot = (xg.next() >>> 0) / 0x100000000,
-          result = (top + bot) / (1 << 21);
-    } while (result === 0);
-    return result;
-  };
-  prng.int32 = xg.next;
-  prng.quick = prng;
-  if (state) {
-    if (state.x) copy(state, xg);
-    prng.state = function() { return copy(xg, {}); }
-  }
-  return prng;
-}
-
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-} else {
-  this.xorshift7 = impl;
-}
-
-})(
-  this,
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define   // present with an AMD loader
-);
-
-
-},{}],30:[function(require,module,exports){
-// A Javascript implementaion of the "xorwow" prng algorithm by
-// George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
-
-(function(global, module, define) {
-
-function XorGen(seed) {
-  var me = this, strseed = '';
-
-  // Set up generator function.
-  me.next = function() {
-    var t = (me.x ^ (me.x >>> 2));
-    me.x = me.y; me.y = me.z; me.z = me.w; me.w = me.v;
-    return (me.d = (me.d + 362437 | 0)) +
-       (me.v = (me.v ^ (me.v << 4)) ^ (t ^ (t << 1))) | 0;
-  };
-
-  me.x = 0;
-  me.y = 0;
-  me.z = 0;
-  me.w = 0;
-  me.v = 0;
-
-  if (seed === (seed | 0)) {
-    // Integer seed.
-    me.x = seed;
-  } else {
-    // String seed.
-    strseed += seed;
-  }
-
-  // Mix in string seed, then discard an initial batch of 64 values.
-  for (var k = 0; k < strseed.length + 64; k++) {
-    me.x ^= strseed.charCodeAt(k) | 0;
-    if (k == strseed.length) {
-      me.d = me.x << 10 ^ me.x >>> 4;
-    }
-    me.next();
-  }
-}
-
-function copy(f, t) {
-  t.x = f.x;
-  t.y = f.y;
-  t.z = f.z;
-  t.w = f.w;
-  t.v = f.v;
-  t.d = f.d;
-  return t;
-}
-
-function impl(seed, opts) {
-  var xg = new XorGen(seed),
-      state = opts && opts.state,
-      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
-  prng.double = function() {
-    do {
-      var top = xg.next() >>> 11,
-          bot = (xg.next() >>> 0) / 0x100000000,
-          result = (top + bot) / (1 << 21);
-    } while (result === 0);
-    return result;
-  };
-  prng.int32 = xg.next;
-  prng.quick = prng;
-  if (state) {
-    if (typeof(state) == 'object') copy(state, xg);
-    prng.state = function() { return copy(xg, {}); }
-  }
-  return prng;
-}
-
-if (module && module.exports) {
-  module.exports = impl;
-} else if (define && define.amd) {
-  define(function() { return impl; });
-} else {
-  this.xorwow = impl;
-}
-
-})(
-  this,
-  (typeof module) == 'object' && module,    // present in node.js
-  (typeof define) == 'function' && define   // present with an AMD loader
-);
-
-
-
-},{}],31:[function(require,module,exports){
-/*
-Copyright 2014 David Bau.
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-*/
-
-(function (pool, math) {
-//
-// The following constants are related to IEEE 754 limits.
-//
-var global = this,
-    width = 256,        // each RC4 output is 0 <= x < 256
-    chunks = 6,         // at least six RC4 outputs for each double
-    digits = 52,        // there are 52 significant digits in a double
-    rngname = 'random', // rngname: name for Math.random and Math.seedrandom
-    startdenom = math.pow(width, chunks),
-    significance = math.pow(2, digits),
-    overflow = significance * 2,
-    mask = width - 1,
-    nodecrypto;         // node.js crypto module, initialized at the bottom.
-
-//
-// seedrandom()
-// This is the seedrandom function described above.
-//
-function seedrandom(seed, options, callback) {
-  var key = [];
-  options = (options == true) ? { entropy: true } : (options || {});
-
-  // Flatten the seed string or build one from local entropy if needed.
-  var shortseed = mixkey(flatten(
-    options.entropy ? [seed, tostring(pool)] :
-    (seed == null) ? autoseed() : seed, 3), key);
-
-  // Use the seed to initialize an ARC4 generator.
-  var arc4 = new ARC4(key);
-
-  // This function returns a random double in [0, 1) that contains
-  // randomness in every bit of the mantissa of the IEEE 754 value.
-  var prng = function() {
-    var n = arc4.g(chunks),             // Start with a numerator n < 2 ^ 48
-        d = startdenom,                 //   and denominator d = 2 ^ 48.
-        x = 0;                          //   and no 'extra last byte'.
-    while (n < significance) {          // Fill up all significant digits by
-      n = (n + x) * width;              //   shifting numerator and
-      d *= width;                       //   denominator and generating a
-      x = arc4.g(1);                    //   new least-significant-byte.
-    }
-    while (n >= overflow) {             // To avoid rounding up, before adding
-      n /= 2;                           //   last byte, shift everything
-      d /= 2;                           //   right using integer math until
-      x >>>= 1;                         //   we have exactly the desired bits.
-    }
-    return (n + x) / d;                 // Form the number within [0, 1).
-  };
-
-  prng.int32 = function() { return arc4.g(4) | 0; }
-  prng.quick = function() { return arc4.g(4) / 0x100000000; }
-  prng.double = prng;
-
-  // Mix the randomness into accumulated entropy.
-  mixkey(tostring(arc4.S), pool);
-
-  // Calling convention: what to return as a function of prng, seed, is_math.
-  return (options.pass || callback ||
-      function(prng, seed, is_math_call, state) {
-        if (state) {
-          // Load the arc4 state from the given state if it has an S array.
-          if (state.S) { copy(state, arc4); }
-          // Only provide the .state method if requested via options.state.
-          prng.state = function() { return copy(arc4, {}); }
-        }
-
-        // If called as a method of Math (Math.seedrandom()), mutate
-        // Math.random because that is how seedrandom.js has worked since v1.0.
-        if (is_math_call) { math[rngname] = prng; return seed; }
-
-        // Otherwise, it is a newer calling convention, so return the
-        // prng directly.
-        else return prng;
-      })(
-  prng,
-  shortseed,
-  'global' in options ? options.global : (this == math),
-  options.state);
-}
-math['seed' + rngname] = seedrandom;
-
-//
-// ARC4
-//
-// An ARC4 implementation.  The constructor takes a key in the form of
-// an array of at most (width) integers that should be 0 <= x < (width).
-//
-// The g(count) method returns a pseudorandom integer that concatenates
-// the next (count) outputs from ARC4.  Its return value is a number x
-// that is in the range 0 <= x < (width ^ count).
-//
-function ARC4(key) {
-  var t, keylen = key.length,
-      me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
-
-  // The empty key [] is treated as [0].
-  if (!keylen) { key = [keylen++]; }
-
-  // Set up S using the standard key scheduling algorithm.
-  while (i < width) {
-    s[i] = i++;
-  }
-  for (i = 0; i < width; i++) {
-    s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))];
-    s[j] = t;
-  }
-
-  // The "g" method returns the next (count) outputs as one number.
-  (me.g = function(count) {
-    // Using instance members instead of closure state nearly doubles speed.
-    var t, r = 0,
-        i = me.i, j = me.j, s = me.S;
-    while (count--) {
-      t = s[i = mask & (i + 1)];
-      r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))];
-    }
-    me.i = i; me.j = j;
-    return r;
-    // For robust unpredictability, the function call below automatically
-    // discards an initial batch of values.  This is called RC4-drop[256].
-    // See http://google.com/search?q=rsa+fluhrer+response&btnI
-  })(width);
-}
-
-//
-// copy()
-// Copies internal state of ARC4 to or from a plain object.
-//
-function copy(f, t) {
-  t.i = f.i;
-  t.j = f.j;
-  t.S = f.S.slice();
-  return t;
-};
-
-//
-// flatten()
-// Converts an object tree to nested arrays of strings.
-//
-function flatten(obj, depth) {
-  var result = [], typ = (typeof obj), prop;
-  if (depth && typ == 'object') {
-    for (prop in obj) {
-      try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {}
-    }
-  }
-  return (result.length ? result : typ == 'string' ? obj : obj + '\0');
-}
-
-//
-// mixkey()
-// Mixes a string seed into a key that is an array of integers, and
-// returns a shortened string seed that is equivalent to the result key.
-//
-function mixkey(seed, key) {
-  var stringseed = seed + '', smear, j = 0;
-  while (j < stringseed.length) {
-    key[mask & j] =
-      mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++));
-  }
-  return tostring(key);
-}
-
-//
-// autoseed()
-// Returns an object for autoseeding, using window.crypto and Node crypto
-// module if available.
-//
-function autoseed() {
-  try {
-    var out;
-    if (nodecrypto && (out = nodecrypto.randomBytes)) {
-      // The use of 'out' to remember randomBytes makes tight minified code.
-      out = out(width);
-    } else {
-      out = new Uint8Array(width);
-      (global.crypto || global.msCrypto).getRandomValues(out);
-    }
-    return tostring(out);
-  } catch (e) {
-    var browser = global.navigator,
-        plugins = browser && browser.plugins;
-    return [+new Date, global, plugins, global.screen, tostring(pool)];
-  }
-}
-
-//
-// tostring()
-// Converts an array of charcodes to a string
-//
-function tostring(a) {
-  return String.fromCharCode.apply(0, a);
-}
-
-//
-// When seedrandom.js is loaded, we immediately mix a few bits
-// from the built-in RNG into the entropy pool.  Because we do
-// not want to interfere with deterministic PRNG state later,
-// seedrandom will not call math.random on its own again after
-// initialization.
-//
-mixkey(math.random(), pool);
-
-//
-// Nodejs and AMD support: export the implementation as a module using
-// either convention.
-//
-if ((typeof module) == 'object' && module.exports) {
-  module.exports = seedrandom;
-  // When in node.js, try using crypto package for autoseeding.
-  try {
-    nodecrypto = require('crypto');
-  } catch (ex) {}
-} else if ((typeof define) == 'function' && define.amd) {
-  define(function() { return seedrandom; });
-}
-
-// End anonymous scope, and pass initial values.
-})(
-  [],     // pool: entropy pool starts empty
-  Math    // math: package containing random, pow, and seedrandom
-);
-
-},{"crypto":13}],32:[function(require,module,exports){
+},{"./random":25}],22:[function(require,module,exports){
 'use strict'
 
 const removeItems = require('remove-array-items')
@@ -3475,7 +2390,7 @@ function QuadTree(x, y, w, h, options) {
 if( typeof module != 'undefined' )
     module.exports = QuadTree
 
-},{"remove-array-items":23}],33:[function(require,module,exports){
+},{"remove-array-items":33}],23:[function(require,module,exports){
 let turn90Random
 const random = require('./random')
 
@@ -3492,7 +2407,7 @@ module.exports = (turn90Random = function(direction) {
   return dirs[direction][val]
 })
 
-},{"./random":35}],34:[function(require,module,exports){
+},{"./random":25}],24:[function(require,module,exports){
 let randomWeightedIndex
 const random = require('./random')
 
@@ -3517,7 +2432,7 @@ module.exports = (randomWeightedIndex = function(arr) {
   return 0
 })
 
-},{"./random":35}],35:[function(require,module,exports){
+},{"./random":25}],25:[function(require,module,exports){
 const seedrandom = require('seedrandom')
 
 
@@ -3532,7 +2447,7 @@ module.exports.seed = function(seedValue) {
 
 module.exports.next = () => rng()
 
-},{"seedrandom":24}],36:[function(require,module,exports){
+},{"seedrandom":34}],26:[function(require,module,exports){
 class Room {
   constructor(init) {
     Object.assign(this, init)
@@ -3584,7 +2499,7 @@ class Room {
 
 module.exports = Room
 
-},{}],37:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 const Door        = require('./door')
 const Room        = require('./room')
 const randomIndex = require('./random-weighted-index')
@@ -3653,7 +2568,7 @@ class Roomie {
 
 module.exports = Roomie
 
-},{"./door":11,"./random-weighted-index":34,"./room":36,"./uuid":41}],38:[function(require,module,exports){
+},{"./door":17,"./random-weighted-index":24,"./room":26,"./uuid":31}],28:[function(require,module,exports){
 const Anteroom    = require('./anteroom')
 const Door        = require('./door')
 const Room        = require('./room')
@@ -3846,7 +2761,7 @@ class Tunnel {
 
 module.exports = Tunnel
 
-},{"./aabb-expand":2,"./aabb-overlaps":5,"./anteroom":7,"./door":11,"./room":36,"remove-array-items":23}],39:[function(require,module,exports){
+},{"./aabb-expand":8,"./aabb-overlaps":11,"./anteroom":13,"./door":17,"./room":26,"remove-array-items":33}],29:[function(require,module,exports){
 const Anteroom     = require('./anteroom')
 const Roomie       = require('./roomie')
 const Tunnel       = require('./tunnel')
@@ -4296,7 +3211,7 @@ class Tunneler {
 
 module.exports = Tunneler
 
-},{"./aabb-move":4,"./aabb-overlaps":5,"./anteroom":7,"./getvalue":17,"./mutate":21,"./random":35,"./random-turn-90":33,"./random-weighted-index":34,"./roomie":37,"./tunnel":38,"./turn-90":40,"./uuid":41}],40:[function(require,module,exports){
+},{"./aabb-move":10,"./aabb-overlaps":11,"./anteroom":13,"./getvalue":18,"./mutate":21,"./random":25,"./random-turn-90":23,"./random-weighted-index":24,"./roomie":27,"./tunnel":28,"./turn-90":30,"./uuid":31}],30:[function(require,module,exports){
 // given a heading direction and a turn direction, return the new heading
 // e.g.,  result = turn 'NORTH', 'LEFT'
 //        result will be 'WEST', because you are heading north then turn left 90 degrees
@@ -4324,11 +3239,1096 @@ module.exports = (turn90 = function(headingDirection, relativeDirection) {
   return null
 })
 
-},{}],41:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 
 let next
 let uuid = 0
 
 module.exports = (next = () => uuid++)
 
-},{}]},{},[12]);
+},{}],32:[function(require,module,exports){
+/**
+ * Copyright © 2015 John Watson
+ * Licensed under the terms of the MIT License
+ * ---
+ * LootTable is used to make a random choice among a weighted list of alternatives
+ * for item drops, map generation, and many other processes. Here's a good overview
+ * of loot tables: http://www.lostgarden.com/2014/12/loot-drop-tables.html
+ *
+ * Example:
+ *
+ * var loot = new LootTable();
+ * loot.add('sword', 20);
+ * loot.add('shield', 5);
+ * loot.add('gold', 5);
+ * loot.add(null, 1);
+ * var item = loot.choose(); // most likely a sword, sometimes null
+ */
+
+(function (root, factory) {
+    if (typeof define === 'function' && define.amd) {
+        // AMD. Register as an anonymous module.
+        define([], factory);
+    } else if (typeof exports === 'object') {
+        // Node. Does not work with strict CommonJS, but
+        // only CommonJS-like environments that support module.exports,
+        // like Node.
+        module.exports = factory();
+    } else {
+        // Browser globals (root is window)
+        root.returnExports = factory();
+  }
+}(this, function () {
+
+    var LootTable = function(table) {
+        this.table = [];
+        if (table !== undefined) this.table = table;
+    };
+
+    LootTable.prototype.constructor = LootTable;
+
+    LootTable.prototype.clear = function() {
+        this.table.length = 0;
+    };
+
+    /**
+     * Add an item
+     *
+     * Weights are arbitrary, not percentages, and don't need to add up to 100.
+     * If one item has a weight of 2 and another has a weight of 1, the first item
+     * is twice as likely to be chosen. If quantity is given, then calls to choose()
+     * will only return that item while some are available. Each choose() that
+     * selects that item will reduce its quantity by 1.
+     *
+     * Item can be anything, not just strings. It could be an array, a number, JSON
+     * data, null, a function... even another LootTable!
+     * 
+     * @param {mixed} item      The item to be chosen
+     * @param {number} weight   (optional) The weight of the item, defaults to 1
+     * @param {number} quantity (optional) Quantity available, defaults to Infinite
+     */
+    LootTable.prototype.add = function(item, weight, quantity) {
+        if (weight === undefined || weight === null || weight <= 0) weight = 1;
+        if (quantity === undefined || quantity === null || quantity <= 0) quantity = Number.POSITIVE_INFINITY;
+        this.table.push({ item: item, weight: weight, quantity: quantity });
+    };
+
+    /**
+     * Return a random item from the LootTable
+     */
+    LootTable.prototype.choose = function() {
+        if (this.table.length === 0) return null;
+        
+        var i, v;
+        var totalWeight = 0;
+        for(i = 0; i < this.table.length; i++) {
+            v = this.table[i];
+            if (v.quantity > 0) {
+                totalWeight += v.weight;
+            }
+        }
+
+        var choice = 0;
+        var randomNumber = Math.floor(Math.random() * totalWeight + 1);
+        var weight = 0;
+        for(i = 0; i < this.table.length; i++) {
+            v = this.table[i];
+            if (v.quantity <= 0) continue;
+
+            weight += v.weight;
+            if (randomNumber <= weight) {
+                choice = i;
+                break;
+            }
+        }
+
+        var chosenItem = this.table[choice];
+        this.table[choice].quantity--;
+
+        return chosenItem.item;
+    };
+
+    return LootTable;
+}));
+
+},{}],33:[function(require,module,exports){
+'use strict'
+
+/**
+ * Remove a range of items from an array
+ *
+ * @function removeItems
+ * @param {Array<*>} arr The target array
+ * @param {number} startIdx The index to begin removing from (inclusive)
+ * @param {number} removeCount How many items to remove
+ */
+module.exports = function removeItems(arr, startIdx, removeCount)
+{
+  var i, length = arr.length
+
+  if (startIdx >= length || removeCount === 0) {
+    return
+  }
+
+  removeCount = (startIdx + removeCount > length ? length - startIdx : removeCount)
+
+  var len = length - removeCount
+
+  for (i = startIdx; i < len; ++i) {
+    arr[i] = arr[i + removeCount]
+  }
+
+  arr.length = len
+}
+
+},{}],34:[function(require,module,exports){
+// A library of seedable RNGs implemented in Javascript.
+//
+// Usage:
+//
+// var seedrandom = require('seedrandom');
+// var random = seedrandom(1); // or any seed.
+// var x = random();       // 0 <= x < 1.  Every bit is random.
+// var x = random.quick(); // 0 <= x < 1.  32 bits of randomness.
+
+// alea, a 53-bit multiply-with-carry generator by Johannes Baagøe.
+// Period: ~2^116
+// Reported to pass all BigCrush tests.
+var alea = require('./lib/alea');
+
+// xor128, a pure xor-shift generator by George Marsaglia.
+// Period: 2^128-1.
+// Reported to fail: MatrixRank and LinearComp.
+var xor128 = require('./lib/xor128');
+
+// xorwow, George Marsaglia's 160-bit xor-shift combined plus weyl.
+// Period: 2^192-2^32
+// Reported to fail: CollisionOver, SimpPoker, and LinearComp.
+var xorwow = require('./lib/xorwow');
+
+// xorshift7, by François Panneton and Pierre L'ecuyer, takes
+// a different approach: it adds robustness by allowing more shifts
+// than Marsaglia's original three.  It is a 7-shift generator
+// with 256 bits, that passes BigCrush with no systmatic failures.
+// Period 2^256-1.
+// No systematic BigCrush failures reported.
+var xorshift7 = require('./lib/xorshift7');
+
+// xor4096, by Richard Brent, is a 4096-bit xor-shift with a
+// very long period that also adds a Weyl generator. It also passes
+// BigCrush with no systematic failures.  Its long period may
+// be useful if you have many generators and need to avoid
+// collisions.
+// Period: 2^4128-2^32.
+// No systematic BigCrush failures reported.
+var xor4096 = require('./lib/xor4096');
+
+// Tyche-i, by Samuel Neves and Filipe Araujo, is a bit-shifting random
+// number generator derived from ChaCha, a modern stream cipher.
+// https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
+// Period: ~2^127
+// No systematic BigCrush failures reported.
+var tychei = require('./lib/tychei');
+
+// The original ARC4-based prng included in this library.
+// Period: ~2^1600
+var sr = require('./seedrandom');
+
+sr.alea = alea;
+sr.xor128 = xor128;
+sr.xorwow = xorwow;
+sr.xorshift7 = xorshift7;
+sr.xor4096 = xor4096;
+sr.tychei = tychei;
+
+module.exports = sr;
+
+},{"./lib/alea":35,"./lib/tychei":36,"./lib/xor128":37,"./lib/xor4096":38,"./lib/xorshift7":39,"./lib/xorwow":40,"./seedrandom":41}],35:[function(require,module,exports){
+// A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
+// http://baagoe.com/en/RandomMusings/javascript/
+// https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
+// Original work is under MIT license -
+
+// Copyright (C) 2010 by Johannes Baagøe <baagoe@baagoe.org>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+
+
+(function(global, module, define) {
+
+function Alea(seed) {
+  var me = this, mash = Mash();
+
+  me.next = function() {
+    var t = 2091639 * me.s0 + me.c * 2.3283064365386963e-10; // 2^-32
+    me.s0 = me.s1;
+    me.s1 = me.s2;
+    return me.s2 = t - (me.c = t | 0);
+  };
+
+  // Apply the seeding algorithm from Baagoe.
+  me.c = 1;
+  me.s0 = mash(' ');
+  me.s1 = mash(' ');
+  me.s2 = mash(' ');
+  me.s0 -= mash(seed);
+  if (me.s0 < 0) { me.s0 += 1; }
+  me.s1 -= mash(seed);
+  if (me.s1 < 0) { me.s1 += 1; }
+  me.s2 -= mash(seed);
+  if (me.s2 < 0) { me.s2 += 1; }
+  mash = null;
+}
+
+function copy(f, t) {
+  t.c = f.c;
+  t.s0 = f.s0;
+  t.s1 = f.s1;
+  t.s2 = f.s2;
+  return t;
+}
+
+function impl(seed, opts) {
+  var xg = new Alea(seed),
+      state = opts && opts.state,
+      prng = xg.next;
+  prng.int32 = function() { return (xg.next() * 0x100000000) | 0; }
+  prng.double = function() {
+    return prng() + (prng() * 0x200000 | 0) * 1.1102230246251565e-16; // 2^-53
+  };
+  prng.quick = prng;
+  if (state) {
+    if (typeof(state) == 'object') copy(state, xg);
+    prng.state = function() { return copy(xg, {}); }
+  }
+  return prng;
+}
+
+function Mash() {
+  var n = 0xefc8249d;
+
+  var mash = function(data) {
+    data = data.toString();
+    for (var i = 0; i < data.length; i++) {
+      n += data.charCodeAt(i);
+      var h = 0.02519603282416938 * n;
+      n = h >>> 0;
+      h -= n;
+      h *= n;
+      n = h >>> 0;
+      h -= n;
+      n += h * 0x100000000; // 2^32
+    }
+    return (n >>> 0) * 2.3283064365386963e-10; // 2^-32
+  };
+
+  return mash;
+}
+
+
+if (module && module.exports) {
+  module.exports = impl;
+} else if (define && define.amd) {
+  define(function() { return impl; });
+} else {
+  this.alea = impl;
+}
+
+})(
+  this,
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define   // present with an AMD loader
+);
+
+
+
+},{}],36:[function(require,module,exports){
+// A Javascript implementaion of the "Tyche-i" prng algorithm by
+// Samuel Neves and Filipe Araujo.
+// See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
+
+(function(global, module, define) {
+
+function XorGen(seed) {
+  var me = this, strseed = '';
+
+  // Set up generator function.
+  me.next = function() {
+    var b = me.b, c = me.c, d = me.d, a = me.a;
+    b = (b << 25) ^ (b >>> 7) ^ c;
+    c = (c - d) | 0;
+    d = (d << 24) ^ (d >>> 8) ^ a;
+    a = (a - b) | 0;
+    me.b = b = (b << 20) ^ (b >>> 12) ^ c;
+    me.c = c = (c - d) | 0;
+    me.d = (d << 16) ^ (c >>> 16) ^ a;
+    return me.a = (a - b) | 0;
+  };
+
+  /* The following is non-inverted tyche, which has better internal
+   * bit diffusion, but which is about 25% slower than tyche-i in JS.
+  me.next = function() {
+    var a = me.a, b = me.b, c = me.c, d = me.d;
+    a = (me.a + me.b | 0) >>> 0;
+    d = me.d ^ a; d = d << 16 ^ d >>> 16;
+    c = me.c + d | 0;
+    b = me.b ^ c; b = b << 12 ^ d >>> 20;
+    me.a = a = a + b | 0;
+    d = d ^ a; me.d = d = d << 8 ^ d >>> 24;
+    me.c = c = c + d | 0;
+    b = b ^ c;
+    return me.b = (b << 7 ^ b >>> 25);
+  }
+  */
+
+  me.a = 0;
+  me.b = 0;
+  me.c = 2654435769 | 0;
+  me.d = 1367130551;
+
+  if (seed === Math.floor(seed)) {
+    // Integer seed.
+    me.a = (seed / 0x100000000) | 0;
+    me.b = seed | 0;
+  } else {
+    // String seed.
+    strseed += seed;
+  }
+
+  // Mix in string seed, then discard an initial batch of 64 values.
+  for (var k = 0; k < strseed.length + 20; k++) {
+    me.b ^= strseed.charCodeAt(k) | 0;
+    me.next();
+  }
+}
+
+function copy(f, t) {
+  t.a = f.a;
+  t.b = f.b;
+  t.c = f.c;
+  t.d = f.d;
+  return t;
+};
+
+function impl(seed, opts) {
+  var xg = new XorGen(seed),
+      state = opts && opts.state,
+      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
+  prng.double = function() {
+    do {
+      var top = xg.next() >>> 11,
+          bot = (xg.next() >>> 0) / 0x100000000,
+          result = (top + bot) / (1 << 21);
+    } while (result === 0);
+    return result;
+  };
+  prng.int32 = xg.next;
+  prng.quick = prng;
+  if (state) {
+    if (typeof(state) == 'object') copy(state, xg);
+    prng.state = function() { return copy(xg, {}); }
+  }
+  return prng;
+}
+
+if (module && module.exports) {
+  module.exports = impl;
+} else if (define && define.amd) {
+  define(function() { return impl; });
+} else {
+  this.tychei = impl;
+}
+
+})(
+  this,
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define   // present with an AMD loader
+);
+
+
+
+},{}],37:[function(require,module,exports){
+// A Javascript implementaion of the "xor128" prng algorithm by
+// George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
+
+(function(global, module, define) {
+
+function XorGen(seed) {
+  var me = this, strseed = '';
+
+  me.x = 0;
+  me.y = 0;
+  me.z = 0;
+  me.w = 0;
+
+  // Set up generator function.
+  me.next = function() {
+    var t = me.x ^ (me.x << 11);
+    me.x = me.y;
+    me.y = me.z;
+    me.z = me.w;
+    return me.w ^= (me.w >>> 19) ^ t ^ (t >>> 8);
+  };
+
+  if (seed === (seed | 0)) {
+    // Integer seed.
+    me.x = seed;
+  } else {
+    // String seed.
+    strseed += seed;
+  }
+
+  // Mix in string seed, then discard an initial batch of 64 values.
+  for (var k = 0; k < strseed.length + 64; k++) {
+    me.x ^= strseed.charCodeAt(k) | 0;
+    me.next();
+  }
+}
+
+function copy(f, t) {
+  t.x = f.x;
+  t.y = f.y;
+  t.z = f.z;
+  t.w = f.w;
+  return t;
+}
+
+function impl(seed, opts) {
+  var xg = new XorGen(seed),
+      state = opts && opts.state,
+      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
+  prng.double = function() {
+    do {
+      var top = xg.next() >>> 11,
+          bot = (xg.next() >>> 0) / 0x100000000,
+          result = (top + bot) / (1 << 21);
+    } while (result === 0);
+    return result;
+  };
+  prng.int32 = xg.next;
+  prng.quick = prng;
+  if (state) {
+    if (typeof(state) == 'object') copy(state, xg);
+    prng.state = function() { return copy(xg, {}); }
+  }
+  return prng;
+}
+
+if (module && module.exports) {
+  module.exports = impl;
+} else if (define && define.amd) {
+  define(function() { return impl; });
+} else {
+  this.xor128 = impl;
+}
+
+})(
+  this,
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define   // present with an AMD loader
+);
+
+
+
+},{}],38:[function(require,module,exports){
+// A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
+//
+// This fast non-cryptographic random number generator is designed for
+// use in Monte-Carlo algorithms. It combines a long-period xorshift
+// generator with a Weyl generator, and it passes all common batteries
+// of stasticial tests for randomness while consuming only a few nanoseconds
+// for each prng generated.  For background on the generator, see Brent's
+// paper: "Some long-period random number generators using shifts and xors."
+// http://arxiv.org/pdf/1004.3115v1.pdf
+//
+// Usage:
+//
+// var xor4096 = require('xor4096');
+// random = xor4096(1);                        // Seed with int32 or string.
+// assert.equal(random(), 0.1520436450538547); // (0, 1) range, 53 bits.
+// assert.equal(random.int32(), 1806534897);   // signed int32, 32 bits.
+//
+// For nonzero numeric keys, this impelementation provides a sequence
+// identical to that by Brent's xorgens 3 implementaion in C.  This
+// implementation also provides for initalizing the generator with
+// string seeds, or for saving and restoring the state of the generator.
+//
+// On Chrome, this prng benchmarks about 2.1 times slower than
+// Javascript's built-in Math.random().
+
+(function(global, module, define) {
+
+function XorGen(seed) {
+  var me = this;
+
+  // Set up generator function.
+  me.next = function() {
+    var w = me.w,
+        X = me.X, i = me.i, t, v;
+    // Update Weyl generator.
+    me.w = w = (w + 0x61c88647) | 0;
+    // Update xor generator.
+    v = X[(i + 34) & 127];
+    t = X[i = ((i + 1) & 127)];
+    v ^= v << 13;
+    t ^= t << 17;
+    v ^= v >>> 15;
+    t ^= t >>> 12;
+    // Update Xor generator array state.
+    v = X[i] = v ^ t;
+    me.i = i;
+    // Result is the combination.
+    return (v + (w ^ (w >>> 16))) | 0;
+  };
+
+  function init(me, seed) {
+    var t, v, i, j, w, X = [], limit = 128;
+    if (seed === (seed | 0)) {
+      // Numeric seeds initialize v, which is used to generates X.
+      v = seed;
+      seed = null;
+    } else {
+      // String seeds are mixed into v and X one character at a time.
+      seed = seed + '\0';
+      v = 0;
+      limit = Math.max(limit, seed.length);
+    }
+    // Initialize circular array and weyl value.
+    for (i = 0, j = -32; j < limit; ++j) {
+      // Put the unicode characters into the array, and shuffle them.
+      if (seed) v ^= seed.charCodeAt((j + 32) % seed.length);
+      // After 32 shuffles, take v as the starting w value.
+      if (j === 0) w = v;
+      v ^= v << 10;
+      v ^= v >>> 15;
+      v ^= v << 4;
+      v ^= v >>> 13;
+      if (j >= 0) {
+        w = (w + 0x61c88647) | 0;     // Weyl.
+        t = (X[j & 127] ^= (v + w));  // Combine xor and weyl to init array.
+        i = (0 == t) ? i + 1 : 0;     // Count zeroes.
+      }
+    }
+    // We have detected all zeroes; make the key nonzero.
+    if (i >= 128) {
+      X[(seed && seed.length || 0) & 127] = -1;
+    }
+    // Run the generator 512 times to further mix the state before using it.
+    // Factoring this as a function slows the main generator, so it is just
+    // unrolled here.  The weyl generator is not advanced while warming up.
+    i = 127;
+    for (j = 4 * 128; j > 0; --j) {
+      v = X[(i + 34) & 127];
+      t = X[i = ((i + 1) & 127)];
+      v ^= v << 13;
+      t ^= t << 17;
+      v ^= v >>> 15;
+      t ^= t >>> 12;
+      X[i] = v ^ t;
+    }
+    // Storing state as object members is faster than using closure variables.
+    me.w = w;
+    me.X = X;
+    me.i = i;
+  }
+
+  init(me, seed);
+}
+
+function copy(f, t) {
+  t.i = f.i;
+  t.w = f.w;
+  t.X = f.X.slice();
+  return t;
+};
+
+function impl(seed, opts) {
+  if (seed == null) seed = +(new Date);
+  var xg = new XorGen(seed),
+      state = opts && opts.state,
+      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
+  prng.double = function() {
+    do {
+      var top = xg.next() >>> 11,
+          bot = (xg.next() >>> 0) / 0x100000000,
+          result = (top + bot) / (1 << 21);
+    } while (result === 0);
+    return result;
+  };
+  prng.int32 = xg.next;
+  prng.quick = prng;
+  if (state) {
+    if (state.X) copy(state, xg);
+    prng.state = function() { return copy(xg, {}); }
+  }
+  return prng;
+}
+
+if (module && module.exports) {
+  module.exports = impl;
+} else if (define && define.amd) {
+  define(function() { return impl; });
+} else {
+  this.xor4096 = impl;
+}
+
+})(
+  this,                                     // window object or global
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define   // present with an AMD loader
+);
+
+},{}],39:[function(require,module,exports){
+// A Javascript implementaion of the "xorshift7" algorithm by
+// François Panneton and Pierre L'ecuyer:
+// "On the Xorgshift Random Number Generators"
+// http://saluc.engr.uconn.edu/refs/crypto/rng/panneton05onthexorshift.pdf
+
+(function(global, module, define) {
+
+function XorGen(seed) {
+  var me = this;
+
+  // Set up generator function.
+  me.next = function() {
+    // Update xor generator.
+    var X = me.x, i = me.i, t, v, w;
+    t = X[i]; t ^= (t >>> 7); v = t ^ (t << 24);
+    t = X[(i + 1) & 7]; v ^= t ^ (t >>> 10);
+    t = X[(i + 3) & 7]; v ^= t ^ (t >>> 3);
+    t = X[(i + 4) & 7]; v ^= t ^ (t << 7);
+    t = X[(i + 7) & 7]; t = t ^ (t << 13); v ^= t ^ (t << 9);
+    X[i] = v;
+    me.i = (i + 1) & 7;
+    return v;
+  };
+
+  function init(me, seed) {
+    var j, w, X = [];
+
+    if (seed === (seed | 0)) {
+      // Seed state array using a 32-bit integer.
+      w = X[0] = seed;
+    } else {
+      // Seed state using a string.
+      seed = '' + seed;
+      for (j = 0; j < seed.length; ++j) {
+        X[j & 7] = (X[j & 7] << 15) ^
+            (seed.charCodeAt(j) + X[(j + 1) & 7] << 13);
+      }
+    }
+    // Enforce an array length of 8, not all zeroes.
+    while (X.length < 8) X.push(0);
+    for (j = 0; j < 8 && X[j] === 0; ++j);
+    if (j == 8) w = X[7] = -1; else w = X[j];
+
+    me.x = X;
+    me.i = 0;
+
+    // Discard an initial 256 values.
+    for (j = 256; j > 0; --j) {
+      me.next();
+    }
+  }
+
+  init(me, seed);
+}
+
+function copy(f, t) {
+  t.x = f.x.slice();
+  t.i = f.i;
+  return t;
+}
+
+function impl(seed, opts) {
+  if (seed == null) seed = +(new Date);
+  var xg = new XorGen(seed),
+      state = opts && opts.state,
+      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
+  prng.double = function() {
+    do {
+      var top = xg.next() >>> 11,
+          bot = (xg.next() >>> 0) / 0x100000000,
+          result = (top + bot) / (1 << 21);
+    } while (result === 0);
+    return result;
+  };
+  prng.int32 = xg.next;
+  prng.quick = prng;
+  if (state) {
+    if (state.x) copy(state, xg);
+    prng.state = function() { return copy(xg, {}); }
+  }
+  return prng;
+}
+
+if (module && module.exports) {
+  module.exports = impl;
+} else if (define && define.amd) {
+  define(function() { return impl; });
+} else {
+  this.xorshift7 = impl;
+}
+
+})(
+  this,
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define   // present with an AMD loader
+);
+
+
+},{}],40:[function(require,module,exports){
+// A Javascript implementaion of the "xorwow" prng algorithm by
+// George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
+
+(function(global, module, define) {
+
+function XorGen(seed) {
+  var me = this, strseed = '';
+
+  // Set up generator function.
+  me.next = function() {
+    var t = (me.x ^ (me.x >>> 2));
+    me.x = me.y; me.y = me.z; me.z = me.w; me.w = me.v;
+    return (me.d = (me.d + 362437 | 0)) +
+       (me.v = (me.v ^ (me.v << 4)) ^ (t ^ (t << 1))) | 0;
+  };
+
+  me.x = 0;
+  me.y = 0;
+  me.z = 0;
+  me.w = 0;
+  me.v = 0;
+
+  if (seed === (seed | 0)) {
+    // Integer seed.
+    me.x = seed;
+  } else {
+    // String seed.
+    strseed += seed;
+  }
+
+  // Mix in string seed, then discard an initial batch of 64 values.
+  for (var k = 0; k < strseed.length + 64; k++) {
+    me.x ^= strseed.charCodeAt(k) | 0;
+    if (k == strseed.length) {
+      me.d = me.x << 10 ^ me.x >>> 4;
+    }
+    me.next();
+  }
+}
+
+function copy(f, t) {
+  t.x = f.x;
+  t.y = f.y;
+  t.z = f.z;
+  t.w = f.w;
+  t.v = f.v;
+  t.d = f.d;
+  return t;
+}
+
+function impl(seed, opts) {
+  var xg = new XorGen(seed),
+      state = opts && opts.state,
+      prng = function() { return (xg.next() >>> 0) / 0x100000000; };
+  prng.double = function() {
+    do {
+      var top = xg.next() >>> 11,
+          bot = (xg.next() >>> 0) / 0x100000000,
+          result = (top + bot) / (1 << 21);
+    } while (result === 0);
+    return result;
+  };
+  prng.int32 = xg.next;
+  prng.quick = prng;
+  if (state) {
+    if (typeof(state) == 'object') copy(state, xg);
+    prng.state = function() { return copy(xg, {}); }
+  }
+  return prng;
+}
+
+if (module && module.exports) {
+  module.exports = impl;
+} else if (define && define.amd) {
+  define(function() { return impl; });
+} else {
+  this.xorwow = impl;
+}
+
+})(
+  this,
+  (typeof module) == 'object' && module,    // present in node.js
+  (typeof define) == 'function' && define   // present with an AMD loader
+);
+
+
+
+},{}],41:[function(require,module,exports){
+/*
+Copyright 2014 David Bau.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+*/
+
+(function (pool, math) {
+//
+// The following constants are related to IEEE 754 limits.
+//
+var global = this,
+    width = 256,        // each RC4 output is 0 <= x < 256
+    chunks = 6,         // at least six RC4 outputs for each double
+    digits = 52,        // there are 52 significant digits in a double
+    rngname = 'random', // rngname: name for Math.random and Math.seedrandom
+    startdenom = math.pow(width, chunks),
+    significance = math.pow(2, digits),
+    overflow = significance * 2,
+    mask = width - 1,
+    nodecrypto;         // node.js crypto module, initialized at the bottom.
+
+//
+// seedrandom()
+// This is the seedrandom function described above.
+//
+function seedrandom(seed, options, callback) {
+  var key = [];
+  options = (options == true) ? { entropy: true } : (options || {});
+
+  // Flatten the seed string or build one from local entropy if needed.
+  var shortseed = mixkey(flatten(
+    options.entropy ? [seed, tostring(pool)] :
+    (seed == null) ? autoseed() : seed, 3), key);
+
+  // Use the seed to initialize an ARC4 generator.
+  var arc4 = new ARC4(key);
+
+  // This function returns a random double in [0, 1) that contains
+  // randomness in every bit of the mantissa of the IEEE 754 value.
+  var prng = function() {
+    var n = arc4.g(chunks),             // Start with a numerator n < 2 ^ 48
+        d = startdenom,                 //   and denominator d = 2 ^ 48.
+        x = 0;                          //   and no 'extra last byte'.
+    while (n < significance) {          // Fill up all significant digits by
+      n = (n + x) * width;              //   shifting numerator and
+      d *= width;                       //   denominator and generating a
+      x = arc4.g(1);                    //   new least-significant-byte.
+    }
+    while (n >= overflow) {             // To avoid rounding up, before adding
+      n /= 2;                           //   last byte, shift everything
+      d /= 2;                           //   right using integer math until
+      x >>>= 1;                         //   we have exactly the desired bits.
+    }
+    return (n + x) / d;                 // Form the number within [0, 1).
+  };
+
+  prng.int32 = function() { return arc4.g(4) | 0; }
+  prng.quick = function() { return arc4.g(4) / 0x100000000; }
+  prng.double = prng;
+
+  // Mix the randomness into accumulated entropy.
+  mixkey(tostring(arc4.S), pool);
+
+  // Calling convention: what to return as a function of prng, seed, is_math.
+  return (options.pass || callback ||
+      function(prng, seed, is_math_call, state) {
+        if (state) {
+          // Load the arc4 state from the given state if it has an S array.
+          if (state.S) { copy(state, arc4); }
+          // Only provide the .state method if requested via options.state.
+          prng.state = function() { return copy(arc4, {}); }
+        }
+
+        // If called as a method of Math (Math.seedrandom()), mutate
+        // Math.random because that is how seedrandom.js has worked since v1.0.
+        if (is_math_call) { math[rngname] = prng; return seed; }
+
+        // Otherwise, it is a newer calling convention, so return the
+        // prng directly.
+        else return prng;
+      })(
+  prng,
+  shortseed,
+  'global' in options ? options.global : (this == math),
+  options.state);
+}
+math['seed' + rngname] = seedrandom;
+
+//
+// ARC4
+//
+// An ARC4 implementation.  The constructor takes a key in the form of
+// an array of at most (width) integers that should be 0 <= x < (width).
+//
+// The g(count) method returns a pseudorandom integer that concatenates
+// the next (count) outputs from ARC4.  Its return value is a number x
+// that is in the range 0 <= x < (width ^ count).
+//
+function ARC4(key) {
+  var t, keylen = key.length,
+      me = this, i = 0, j = me.i = me.j = 0, s = me.S = [];
+
+  // The empty key [] is treated as [0].
+  if (!keylen) { key = [keylen++]; }
+
+  // Set up S using the standard key scheduling algorithm.
+  while (i < width) {
+    s[i] = i++;
+  }
+  for (i = 0; i < width; i++) {
+    s[i] = s[j = mask & (j + key[i % keylen] + (t = s[i]))];
+    s[j] = t;
+  }
+
+  // The "g" method returns the next (count) outputs as one number.
+  (me.g = function(count) {
+    // Using instance members instead of closure state nearly doubles speed.
+    var t, r = 0,
+        i = me.i, j = me.j, s = me.S;
+    while (count--) {
+      t = s[i = mask & (i + 1)];
+      r = r * width + s[mask & ((s[i] = s[j = mask & (j + t)]) + (s[j] = t))];
+    }
+    me.i = i; me.j = j;
+    return r;
+    // For robust unpredictability, the function call below automatically
+    // discards an initial batch of values.  This is called RC4-drop[256].
+    // See http://google.com/search?q=rsa+fluhrer+response&btnI
+  })(width);
+}
+
+//
+// copy()
+// Copies internal state of ARC4 to or from a plain object.
+//
+function copy(f, t) {
+  t.i = f.i;
+  t.j = f.j;
+  t.S = f.S.slice();
+  return t;
+};
+
+//
+// flatten()
+// Converts an object tree to nested arrays of strings.
+//
+function flatten(obj, depth) {
+  var result = [], typ = (typeof obj), prop;
+  if (depth && typ == 'object') {
+    for (prop in obj) {
+      try { result.push(flatten(obj[prop], depth - 1)); } catch (e) {}
+    }
+  }
+  return (result.length ? result : typ == 'string' ? obj : obj + '\0');
+}
+
+//
+// mixkey()
+// Mixes a string seed into a key that is an array of integers, and
+// returns a shortened string seed that is equivalent to the result key.
+//
+function mixkey(seed, key) {
+  var stringseed = seed + '', smear, j = 0;
+  while (j < stringseed.length) {
+    key[mask & j] =
+      mask & ((smear ^= key[mask & j] * 19) + stringseed.charCodeAt(j++));
+  }
+  return tostring(key);
+}
+
+//
+// autoseed()
+// Returns an object for autoseeding, using window.crypto and Node crypto
+// module if available.
+//
+function autoseed() {
+  try {
+    var out;
+    if (nodecrypto && (out = nodecrypto.randomBytes)) {
+      // The use of 'out' to remember randomBytes makes tight minified code.
+      out = out(width);
+    } else {
+      out = new Uint8Array(width);
+      (global.crypto || global.msCrypto).getRandomValues(out);
+    }
+    return tostring(out);
+  } catch (e) {
+    var browser = global.navigator,
+        plugins = browser && browser.plugins;
+    return [+new Date, global, plugins, global.screen, tostring(pool)];
+  }
+}
+
+//
+// tostring()
+// Converts an array of charcodes to a string
+//
+function tostring(a) {
+  return String.fromCharCode.apply(0, a);
+}
+
+//
+// When seedrandom.js is loaded, we immediately mix a few bits
+// from the built-in RNG into the entropy pool.  Because we do
+// not want to interfere with deterministic PRNG state later,
+// seedrandom will not call math.random on its own again after
+// initialization.
+//
+mixkey(math.random(), pool);
+
+//
+// Nodejs and AMD support: export the implementation as a module using
+// either convention.
+//
+if ((typeof module) == 'object' && module.exports) {
+  module.exports = seedrandom;
+  // When in node.js, try using crypto package for autoseeding.
+  try {
+    nodecrypto = require('crypto');
+  } catch (ex) {}
+} else if ((typeof define) == 'function' && define.amd) {
+  define(function() { return seedrandom; });
+}
+
+// End anonymous scope, and pass initial values.
+})(
+  [],     // pool: entropy pool starts empty
+  Math    // math: package containing random, pow, and seedrandom
+);
+
+},{"crypto":2}]},{},[1]);
