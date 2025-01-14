@@ -26,7 +26,7 @@ const ENTITIES = [ 'tunnels', 'rooms', 'anterooms', 'doors' ]
 export default class LevelGenerator {
   constructor(design=designDefault, seedValue=null) {
     let t
-console.log('whoa', design)
+
     this.design = JSON.parse(JSON.stringify(design))
     this.objects = [ ]
     this.workers = [ ]
