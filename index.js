@@ -11,7 +11,6 @@ import expandAABB    from './lib/aabb-expand.js'
 import getPortal     from './lib/aabb-portal.js'
 import intersect1D   from './lib/1d-intersect.js'
 import intersectAABB from './lib/aabb-intersect.js'
-import levelFurnish  from './lib/level-furnish/index.js'
 import moveAABB      from './lib/aabb-move.js'
 import overlaps      from './lib/aabb-overlaps.js'
 import * as random   from './lib/random.js'
@@ -25,19 +24,12 @@ const ENTITIES = [ 'tunnels', 'rooms', 'anterooms', 'doors' ]
 
 
 export default class LevelGenerator {
-  constructor(machines, design, seedValue, theme) {
+  constructor(design=designDefault, seedValue=null) {
     let t
-    if (design === null)
-      design = designDefault
-
-    if (seedValue === null)
-      seedValue = null
-
-    this.machines = machines
-    this.theme = theme
+console.log('whoa', design)
     this.design = JSON.parse(JSON.stringify(design))
-    this.objects = []
-    this.workers = []
+    this.objects = [ ]
+    this.workers = [ ]
     this.generation = 0
 
     // stores references to items, which speeds up AABB overlap checks
@@ -548,18 +540,6 @@ export default class LevelGenerator {
       }
 
       level.objects.push(next)
-    }
-
-    const machines = levelFurnish(this.machines, this.objects, this.theme)
-
-    // convert machines from tiles to pixels and add to the level objects
-    for (let machine of Array.from(machines)) {
-      machine.type = 'machine'
-      machine.x *= TILE_SIZE
-      machine.y *= TILE_SIZE
-      machine.width *= TILE_SIZE
-      machine.height *= TILE_SIZE
-      level.objects.push(machine)
     }
 
     const startRoom = this.objects.find(o => o.type === 'room')

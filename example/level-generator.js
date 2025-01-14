@@ -19,13 +19,7 @@ async function main () {
 
   ctx.scale(scale, scale)
 
-
-  const raw = await fetch('../lib/level-furnish/machines.xt')
-  const machinesSrc = await raw.text()
-  const machines = parse(machinesSrc)
-
-  const theme = 'RESEARCH'
-  const level = new Generator(machines, null, null, theme)
+  const level = new Generator()
 
   level.build()
 
