@@ -34,9 +34,8 @@ async function main () {
     // find all items under the clicked x,y position
     level.objects.forEach(function (entity) {
       if (x >= entity.x && x <= (entity.x + entity.width - 1)) {
-        if (y >= entity.y && y <= (entity.y + entity.height - 1)) {
+        if (y >= entity.y && y <= (entity.y + entity.height - 1))
           console.log('hit:', entity)
-        }
       }
     })
   })
