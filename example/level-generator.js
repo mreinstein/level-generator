@@ -1,5 +1,4 @@
 import Generator from '../index.js'
-import parse     from '../lib/level-furnish/parse-machine-config.js'
 
 
 async function main () {
