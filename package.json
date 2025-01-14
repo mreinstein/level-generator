@@ -1,10 +1,10 @@
 {
   "name": "level-generator",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Randomly generate 2d levels in closed environments, as found in many roguelike games.",
   "main": "index.js",
-  "scripts": {
-  },
+  "type": "module",
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mreinstein/level-generator.git"
@@ -26,16 +26,8 @@
   },
   "homepage": "https://github.com/mreinstein/level-generator#readme",
   "dependencies": {
-    "loot-table": "^0.0.2",
-    "remove-array-items": "^1.0.0",
-    "seedrandom": "^2.4.3"
-  },
-  "browserify": {
-    "transform": [
-      "brfs"
-    ]
-  },
-  "devDependencies": {
-    "brfs": "^1.4.3"
+    "alea": "^1.0.1",
+    "loot-table": "^0.1.0",
+    "remove-array-items": "^3.0.0"
   }
 }

@@ -1,35 +1,39 @@
-const Anteroom      = require('./lib/anteroom')
-const Door          = require('./lib/door')
-const QuadTree      = require('./lib/qtree')
-const Room          = require('./lib/room')
-const Roomie        = require('./lib/roomie')
-const Tunneler      = require('./lib/tunneler')
-const buildGraph    = require('./lib/build-graph')
-const constants     = require('./lib/constants')
-const designDefault = require('./lib/design-default')
-const expandAABB    = require('./lib/aabb-expand')
-const getPortal     = require('./lib/aabb-portal')
-const intersect1D   = require('./lib/1d-intersect')
-const intersectAABB = require('./lib/aabb-intersect')
-const levelFurnish  = require('./lib/level-furnish')
-const moveAABB      = require('./lib/aabb-move')
-const overlaps      = require('./lib/aabb-overlaps')
-const random        = require('./lib/random')
-const removeItems   = require('remove-array-items')
-const seed          = require('seedrandom')
-const turn90        = require('./lib/turn-90')
-//const zeros         = require('zeros')
+import Anteroom      from './lib/anteroom.js'
+import Door          from './lib/door.js'
+import QuadTree      from './lib/qtree.js'
+import Room          from './lib/room.js'
+import Roomie        from './lib/roomie.js'
+import Tunneler      from './lib/tunneler.js'
+import buildGraph    from './lib/build-graph.js'
+import constants     from './lib/constants.js'
+import designDefault from './lib/design-default.js'
+import expandAABB    from './lib/aabb-expand.js'
+import getPortal     from './lib/aabb-portal.js'
+import intersect1D   from './lib/1d-intersect.js'
+import intersectAABB from './lib/aabb-intersect.js'
+import levelFurnish  from './lib/level-furnish/index.js'
+import moveAABB      from './lib/aabb-move.js'
+import overlaps      from './lib/aabb-overlaps.js'
+import * as random   from './lib/random.js'
+import removeItems   from 'remove-array-items'
+import turn90        from './lib/turn-90.js'
+//import zeros         from 'zeros'
 
 
 // global constants
 const ENTITIES = [ 'tunnels', 'rooms', 'anterooms', 'doors' ]
 
 
-class LevelGenerator {
-  constructor(design, seedValue, theme) {
+export default class LevelGenerator {
+  constructor(machines, design, seedValue, theme) {
     let t
-    if (design == null) { design = designDefault }
-    if (seedValue == null) { seedValue = null }
+    if (design === null)
+      design = designDefault
+
+    if (seedValue === null)
+      seedValue = null
+
+    this.machines = machines
     this.theme = theme
     this.design = JSON.parse(JSON.stringify(design))
     this.objects = []
@@ -546,7 +550,7 @@ class LevelGenerator {
       level.objects.push(next)
     }
 
-    const machines = levelFurnish(this.objects, this.theme)
+    const machines = levelFurnish(this.machines, this.objects, this.theme)
 
     // convert machines from tiles to pixels and add to the level objects
     for (let machine of Array.from(machines)) {
@@ -849,6 +853,3 @@ class LevelGenerator {
     return grid
   }
 }
-
-
-module.exports = LevelGenerator

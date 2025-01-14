@@ -1,6 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <title class="titleText">Map Generator Test</title>
+  <meta name="description" content="Usage Example for Map Generator" />
+  <meta name="author" content="Michael Reinstein" />
+  <meta name="viewport" content="width=device-width" />
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
 
@@ -22,7 +32,7 @@
       user-select: none;
     }
 
-    #canvas {  
+    #canvas {
       image-rendering: optimizeSpeed;             
       image-rendering: -moz-crisp-edges;          
       image-rendering: -webkit-optimize-contrast;                                         
@@ -39,12 +49,21 @@
 
 <body>
   
-  <canvas id="canvas">
-    <div class="unsupported">
-      Sorry, this example cannot be run because your browser does not support the &lt;canvas&gt; element
-    </div>
-  </canvas>
+  <canvas id="canvas"> </canvas>
 
-  <script src="bundle.js"></script> 
+  <script type="importmap">
+    {
+      "imports": {
+        "loot-table": "https://cdn.skypack.dev/loot-table",
+        "remove-array-items": "https://cdn.skypack.dev/remove-array-items",
+        "alea": "https://cdn.skypack.dev/alea",
+        "clamp": "https://cdn.skypack.dev/clamp",
+        "round-half-up-symmetric": "https://cdn.skypack.dev/round-half-up-symmetric",
+        "alea": "https://cdn.skypack.dev/alea",
+        "wgpu-matrix": "https://cdn.skypack.dev/wgpu-matrix"
+      }
+    }
+  </script>
+  <script src="./level-generator.js" type="module"></script> 
 </body>
 </html>

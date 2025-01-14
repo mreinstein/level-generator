@@ -26,13 +26,14 @@ The algorithms in this module are conceptually based on dungeonmaker, though non
 ## install
 
 ```bash
-npm install level-generator --save
+npm install level-generator
 ```
 
 ## usage
 
 ```javascript
-const LevelGenerator = require('level-generator')
+import LevelGenerator from 'level-generator'
+
 
 level = new LevelGenerator()
 

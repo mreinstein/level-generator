@@ -1,10 +1,56 @@
-'use strict'
-
-const Generator = require('../')
-const raf       = require('raf')
+import Generator from '../index.js'
+import parse     from '../lib/level-furnish/parse-machine-config.js'
 
 
-function render(dungeon, ctx) {
+async function main () {
+  const canvas = document.getElementById('canvas')
+  const ctx = canvas.getContext('2d')
+  let ratio = window.devicePixelRatio || 1
+
+  const w = 2000 // level.design.dimensions.width
+  const h = 2000 // level.design.dimensions.height
+  const scale = 3
+
+  canvas.width = w * ratio * scale
+  canvas.height = h * ratio * scale
+
+  canvas.style.width = w * scale + 'px'
+  canvas.style.height = h * scale + 'px'
+
+  ctx.scale(scale, scale)
+
+
+  const raw = await fetch('../lib/level-furnish/machines.xt')
+  const machinesSrc = await raw.text()
+  const machines = parse(machinesSrc)
+
+  const theme = 'RESEARCH'
+  const level = new Generator(machines, null, null, theme)
+
+  level.build()
+
+  console.log('complete!', level)
+
+  render(level, ctx)
+
+  canvas.addEventListener('mousedown', function (ev) {
+    ratio = window.devicePixelRatio || 1
+    const x = Math.floor(ev.layerX / scale * ratio)
+    const y = Math.floor(ev.layerY / scale * ratio)
+
+    // find all items under the clicked x,y position
+    level.objects.forEach(function (entity) {
+      if (x >= entity.x && x <= (entity.x + entity.width - 1)) {
+        if (y >= entity.y && y <= (entity.y + entity.height - 1)) {
+          console.log('hit:', entity)
+        }
+      }
+    })
+  })
+}
+
+
+function render (dungeon, ctx) {
   let i, len, o
   ctx.clearRect(0, 0, 3000, 3000)
   const ref = dungeon.objects
@@ -44,42 +90,4 @@ function render(dungeon, ctx) {
 }
 
 
-const canvas = document.getElementById('canvas')
-const ctx = canvas.getContext('2d')
-let ratio = window.devicePixelRatio || 1
-
-const w = 2000 // level.design.dimensions.width
-const h = 2000 // level.design.dimensions.height
-const scale = 3
-
-canvas.width = w * ratio * scale
-canvas.height = h * ratio * scale
-
-canvas.style.width = w * scale + 'px'
-canvas.style.height = h * scale + 'px'
-
-ctx.scale(scale, scale)
-
-const theme = 'RESEARCH'
-const level = new Generator(null, null, theme)
-
-level.build()
-
-console.log('complete!', level)
-
-render(level, ctx)
-
-canvas.addEventListener('mousedown', function(ev) {
-  ratio = window.devicePixelRatio || 1
-  const x = Math.floor(ev.layerX / scale * ratio)
-  const y = Math.floor(ev.layerY / scale * ratio)
-
-  // find all items under the clicked x,y position
-  level.objects.forEach(function(entity) {
-    if (x >= entity.x && x <= (entity.x + entity.width - 1)) {
-      if (y >= entity.y && y <= (entity.y + entity.height - 1)) {
-        console.log('hit:', entity)
-      }
-    }
-  })
-})
+main()
