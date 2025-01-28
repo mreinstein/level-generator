@@ -109,7 +109,7 @@ export default class LevelGenerator {
 
 
   // determine if an AABB is fully inside the level dimensions
-  contains(aabb) {
+  contains (aabb) {
     const minPadding = 1 // ensure there is a 1 unit border around the level edge
     if ((aabb.x < minPadding) || (aabb.y < minPadding)) {
       return false
@@ -123,7 +123,7 @@ export default class LevelGenerator {
 
 
   // determine the largest room that fits at the given level position
-  findLargestRoom(doorPosition, direction, maxSize) {
+  findLargestRoom (doorPosition, direction, maxSize) {
     const leftDirection = turn90(direction, 'LEFT')
     const rightDirection = turn90(direction, 'RIGHT')
 
@@ -133,7 +133,7 @@ export default class LevelGenerator {
       right: rightDirection
     }
 
-    const expand = {forward: true, left: true, right: true}
+    const expand = { forward: true, left: true, right: true }
 
     // move to the first position in the room (right in front of the door)
     let result = { x: doorPosition.x, y: doorPosition.y, width: 1, height: 1 }
@@ -181,7 +181,7 @@ export default class LevelGenerator {
 
 
   // determine if an entity's AABB overlaps any existing level items
-  overlaps(aabb, minRoomSpace, minAnteroomSpace, minTunnelSpace, ignoreEntity) {
+  overlaps (aabb, minRoomSpace, minAnteroomSpace, minTunnelSpace, ignoreEntity) {
     if (ignoreEntity == null) { ignoreEntity = null }
     const spacing = {
       room: minRoomSpace,
@@ -207,7 +207,7 @@ export default class LevelGenerator {
 
   // given 2 level rooms, determine a random space between them to place a valid door.
   // returns null if door can't be placed
-  _getAdjacentRoomDoorPosition(room, next) {
+  _getAdjacentRoomDoorPosition (room, next) {
     // check if rooms are lined up on x axis ( side by side with 1 space between)
     let intersection, length, x, y
     if (((room.x+room.width) === (next.x - 1))  ||  ((room.x) === (next.x + next.width + 1))) {
@@ -246,8 +246,8 @@ export default class LevelGenerator {
 
 
   // get list of all adjacent but unconnected rooms
-  _getAdjacentRooms(room) {
-    const results = []
+  _getAdjacentRooms (room) {
+    const results = [ ]
     if (room.prefab) {
       // don't connect from prefab rooms
       return results
@@ -272,7 +272,7 @@ export default class LevelGenerator {
   }
 
 
-  _roomsAreConnected(room, next) {
+  _roomsAreConnected (room, next) {
     for (let id in room.to) {
       const item = room.to[id]
       if ((item.entity.type === 'door') && item.entity.to[next.id]) {
